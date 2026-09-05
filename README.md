@@ -87,9 +87,13 @@ make check     # lint, format check, and type check
 
 | Document | Purpose |
 | --- | --- |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the system fits together and why |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the system fits together and why, with build status |
+| [integrations.md](docs/integrations.md) | Every integration, its tier and its live status |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Coding standards and review expectations |
-| [docs/adr/](docs/adr/) | Architecture decision records |
+| [docs/adr/](docs/adr/README.md) | Architecture decision records, indexed, plus open questions |
+
+Integration priorities are set in [ADR-005](docs/adr/ADR-005-integration-priorities.md).
+V1 needs five: dbt, Airflow, Snowflake, GitHub and PostgreSQL.
 
 ## Status
 
