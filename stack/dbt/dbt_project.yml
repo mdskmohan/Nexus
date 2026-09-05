@@ -1,0 +1,13 @@
+name: shop
+version: "1.0.0"
+profile: shop
+model-paths: ["models"]
+target-path: "/tmp/dbt_target"
+models:
+  shop:
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: marts

@@ -9,7 +9,8 @@ future reader can tell a deliberate trade-off from an accident.
 | [002](ADR-002-creation-first-wedge.md) | Lead with creation, not diagnosis | Accepted | Diagnosis is the easier sale; creation is the far better partnership pitch, and partnerships are the channel |
 | [003](ADR-003-autonomy-levels.md) | Autonomy levels and the execution boundary | Accepted | The model proposes, a deterministic policy engine decides. No path to a customer system skips the gate |
 | [004](ADR-004-no-vendor-recommendation.md) | No cross-vendor recommendation | Accepted | Advising customers which platform to use makes adversaries of the partners we depend on |
-| [005](ADR-005-integration-priorities.md) | Integration priorities | Accepted | Five P0 integrations close the V1 loop; tiers for everything else with the reasoning |
+| [005](ADR-005-integration-priorities.md) | Integration priorities | Accepted | Six P0 integrations close the V1 loop; tiers for everything else with the reasoning. Amended to promote OpenLineage |
+| [006](ADR-006-conversational-surface.md) | The conversational surface is a policy client | Accepted | The copilot's tool surface is the action catalogue; no path from chat to a customer system skips the gate |
 
 ## Open questions
 

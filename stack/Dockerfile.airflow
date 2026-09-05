@@ -1,0 +1,29 @@
+# Airflow with the OpenLineage provider, plus dbt isolated in its own virtualenv.
+#
+# dbt and Airflow have genuinely conflicting dependency pins, so installing both
+# into one environment sends pip into a long backtracking search that usually
+# fails. Since dbt is invoked as a subprocess by BashOperator it does not need to
+# share Airflow's interpreter — a separate venv is the standard resolution and
+# keeps both dependency trees intact.
+FROM apache/airflow:2.10.4-python3.12
+
+USER root
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /opt/dbt && chown airflow: /opt/dbt
+
+USER airflow
+
+# OpenLineage provider goes into Airflow's own environment, under Airflow's
+# constraints, so the listener can hook the scheduler.
+RUN pip install --no-cache-dir \
+      "apache-airflow-providers-openlineage==1.14.0" \
+      --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.4/constraints-3.12.txt"
+
+# dbt in an isolated venv; the DAG calls /opt/dbt/bin/dbt directly.
+RUN python -m venv /opt/dbt \
+ && /opt/dbt/bin/pip install --no-cache-dir --upgrade pip \
+ && /opt/dbt/bin/pip install --no-cache-dir "dbt-postgres==1.9.0"
+
+ENV DBT_BIN=/opt/dbt/bin/dbt

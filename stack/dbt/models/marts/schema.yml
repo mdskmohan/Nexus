@@ -1,0 +1,21 @@
+version: 2
+models:
+  - name: dim_customer
+    description: One row per customer with user counts
+    config:
+      meta:
+        owner: data-platform
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+      - name: user_count
+exposures:
+  - name: exec_dashboard
+    label: Executive Overview
+    type: dashboard
+    url: https://bi.example.com/exec
+    owner:
+      name: analytics
+      email: analytics@example.com
+    depends_on:
+      - ref('dim_customer')

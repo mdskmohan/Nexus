@@ -17,10 +17,10 @@ which are deferred technically and which strategically.
 | Layer | Tool | Status | What Nexus reads or writes |
 | --- | --- | --- | --- |
 | Transformation | **dbt** | `done` | Model DAG, authored SQL, tests, declared freshness, exposures, owners |
-| Orchestration | **Airflow** | `in progress` | DAG schedule, run state, task instances, task logs |
+| Orchestration | **Airflow** | `done` | DAG schedule, run state, task instances, task logs |
 | Warehouse | **Snowflake** | `not started` | DDL emission, `INFORMATION_SCHEMA` snapshots, query history, warehouse metering |
 | Version control | **GitHub** | `not started` | Commit and deploy history, PR creation for remediation |
-| Database | **PostgreSQL** | `not started` | Operational source extraction; local stand-in warehouse for tests |
+| Database | **PostgreSQL** | `done` | Schema snapshots and drift detection; local stand-in warehouse for tests |
 
 Five integrations close create → deploy → operate for one use case on one stack.
 

@@ -1,0 +1,91 @@
+# Real local stack for developing and testing Nexus connectors.
+#
+# Nothing here is a mock. Airflow really schedules, dbt really builds models in
+# Postgres, and the OpenLineage provider really emits run events — to the Nexus
+# API on the host, because in production Nexus *is* the collector.
+#
+#   docker compose -f stack/docker-compose.yml up -d
+#
+# Postgres is exposed on 55432 to avoid colliding with a local install.
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+  image: nexus/airflow:2.10.4
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://nexus:nexus@postgres:5432/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    # The connector authenticates against this; see nexus.connectors.airflow.
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.session,airflow.api.auth.backend.basic_auth
+    # Emit real OpenLineage events to the Nexus API running on the host.
+    AIRFLOW__OPENLINEAGE__TRANSPORT: >-
+      {"type": "http", "url": "http://host.docker.internal:8000", "endpoint": "api/v1/lineage"}
+    AIRFLOW__OPENLINEAGE__NAMESPACE: nexus-local
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./dbt:/opt/airflow/dbt
+    - airflow-logs:/opt/airflow/logs
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus
+      POSTGRES_DB: airflow
+    ports:
+      - "55432:5432"
+    volumes:
+      - ./init-analytics.sql:/docker-entrypoint-initdb.d/init-analytics.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "nexus"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create --username nexus --password nexus \
+          --firstname Nexus --lastname Local --role Admin --email nexus@example.com || true
+    restart: on-failure
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "18080:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+volumes:
+  airflow-logs:

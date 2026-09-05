@@ -38,8 +38,9 @@ Tier every integration P0, P1 or P2 against five criteria, in this order:
 | **Snowflake** | The compile target and the source of schema history and query history. Partnership priority. |
 | **GitHub** | Generated code has to live somewhere, and remediation is delivered as a pull request (ADR-003, level 2). |
 | **PostgreSQL** | The reference use case's operational source, and the local stand-in warehouse that makes the whole stack testable without credentials. |
+| **OpenLineage** | Promoted from P1 — see the amendment below. Runtime lineage across every execution engine through one implementation, and the data behind the lineage view engineers actually use. |
 
-Five integrations close the loop for one use case on one stack. That is the whole of V1.
+Six integrations close the loop for one use case on one stack. That is the whole of V1.
 
 ### P1 — needed for the second and third customer
 
@@ -53,11 +54,6 @@ alternatives), Great Expectations and Soda (quality signals beyond dbt tests),
 Terraform (infrastructure a pipeline depends on), secrets managers (Vault, AWS Secrets
 Manager), and the BI tools — Looker, Power BI, Tableau — which extend impact analysis
 past the exposures dbt happens to declare.
-
-**OpenLineage is the exception worth pulling forward.** It is a standard rather than a
-vendor: supporting it yields partial lineage from Airflow, Spark, dbt, Dagster and
-Flink through one implementation. Its leverage per unit of cost is closer to P0 than
-to the rest of this tier, and it should be built as soon as the P0 set is closed.
 
 **Secrets management is P1 only while autonomy stays at level 2.** Read-only access
 plus pull-request delivery needs no write credentials. The first customer who wants
@@ -113,3 +109,31 @@ list. `docs/integrations.md` tracks live status; this ADR records the reasoning.
   broken the IR before the batch model was proven.
 - **Build a generic plugin SDK and let others fill the catalogue.** Premature. We do
   not yet know what a connector needs to expose, and the interface would be wrong.
+
+---
+
+## Amendment — 2026-09-05: OpenLineage promoted to P0
+
+OpenLineage moves from P1 to P0. Two reasons, neither of which was weighted correctly
+in the original tiering.
+
+**It is a user-facing feature, not just a graph-population mechanism.** Lineage is how a
+data engineer answers "what broke, where, and what does it feed" — the question the
+product exists to answer. Treating it as internal plumbing to be added later would have
+shipped a V1 whose headline screen had no data behind it.
+
+**Creation-first makes it nearly free for our own pipelines.** Because Nexus generates
+and deploys the orchestration config (ADR-002), we can wire the OpenLineage listener in
+at deploy time. Every pipeline Nexus builds emits lineage automatically, with no
+customer action and no reconstruction after the fact.
+
+The cost, recorded honestly: **OpenLineage is push-based.** Jobs emit events to a
+collector, so unlike dbt's manifest it is not zero-touch for pipelines we did not
+build. Adopting an existing estate requires the customer to enable the integration in
+their own Airflow or Spark — a real ask during a security review. The asymmetry is
+worth naming: lineage is automatic for what we create and negotiated for what we adopt.
+
+This also changes the criterion-2 reading. Leverage per unit of cost is exceptional
+*because it is a standard rather than a vendor*: one implementation yields lineage from
+Airflow, Spark, dbt, Dagster and Flink at once, so it is the single highest-return
+integration in the catalogue after dbt.

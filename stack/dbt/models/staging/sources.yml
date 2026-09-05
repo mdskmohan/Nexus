@@ -1,0 +1,20 @@
+version: 2
+sources:
+  - name: raw
+    database: analytics
+    schema: raw
+    loaded_at_field: _loaded_at
+    freshness:
+      warn_after: {count: 6, period: hour}
+      error_after: {count: 24, period: hour}
+    tables:
+      - name: salesforce_account
+        columns:
+          - name: id
+            description: Salesforce account id
+            tests: [not_null, unique]
+          - name: name
+      - name: app_users
+        columns:
+          - name: id
+          - name: account_id
