@@ -1,0 +1,215 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Nexus design tokens.
+ *
+ * Rules (enforced in review, see CONTRIBUTING.md):
+ *   1. Every colour a surface needs has a semantic token. No ad-hoc `bg-red-500/15`.
+ *   2. Severity (incidents) and run state (pipeline execution) are first-class
+ *      vocabularies, distinct from generic status.
+ *   3. Light and dark are parity-locked — every token defined in one is defined
+ *      in the other at equivalent perceptual contrast.
+ *   4. Typography is five steps. No sixth. Never `text-[13px]`.
+ *   5. Spacing is on a 4px rhythm.
+ */
+
+/*
+ * Token definitions deliberately sit OUTSIDE @layer base.
+ * Tailwind tree-shakes class selectors inside a layer when the class name does
+ * not appear in a content file, which silently deletes the whole dark theme.
+ */
+:root {
+  /* ── Surface ── */
+  --background: 220 20% 98%;
+  --foreground: 224 40% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 40% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 40% 10%;
+
+  /* ── Muted / accent / border / input ── */
+  --muted: 220 16% 95%;
+  --muted-foreground: 220 9% 44%;
+  --accent: 220 16% 93%;
+  --accent-foreground: 224 40% 10%;
+  --border: 220 15% 89%;
+  --border-strong: 220 15% 80%;
+  --input: 220 15% 89%;
+  --ring: 252 83% 62%;
+
+  /* ── Brand ── */
+  --primary: 252 83% 62%;
+  --primary-foreground: 0 0% 100%;
+  --primary-soft: 252 83% 96%;
+  --primary-soft-foreground: 252 70% 40%;
+  --secondary: 220 16% 95%;
+  --secondary-foreground: 224 40% 10%;
+
+  /* ── Status ── */
+  --success: 142 69% 36%;
+  --success-foreground: 0 0% 100%;
+  --success-soft: 142 69% 94%;
+  --success-soft-foreground: 142 69% 22%;
+
+  --warning: 32 94% 44%;
+  --warning-foreground: 0 0% 100%;
+  --warning-soft: 32 94% 94%;
+  --warning-soft-foreground: 32 94% 28%;
+
+  --danger: 0 72% 50%;
+  --danger-foreground: 0 0% 100%;
+  --danger-soft: 0 72% 96%;
+  --danger-soft-foreground: 0 72% 34%;
+
+  --info: 205 88% 46%;
+  --info-foreground: 0 0% 100%;
+  --info-soft: 205 88% 95%;
+  --info-soft-foreground: 205 88% 28%;
+
+  --destructive: var(--danger);
+  --destructive-foreground: var(--danger-foreground);
+
+  /* ── Severity (incidents) ── */
+  --severity-critical: 0 72% 50%;
+  --severity-critical-soft: 0 72% 96%;
+  --severity-critical-soft-foreground: 0 72% 34%;
+  --severity-high: 22 88% 46%;
+  --severity-high-soft: 22 88% 95%;
+  --severity-high-soft-foreground: 22 88% 28%;
+  --severity-medium: 38 94% 45%;
+  --severity-medium-soft: 38 94% 94%;
+  --severity-medium-soft-foreground: 38 94% 26%;
+  --severity-low: 205 88% 46%;
+  --severity-low-soft: 205 88% 95%;
+  --severity-low-soft-foreground: 205 88% 28%;
+
+  /* ── Run state (pipeline execution) ── */
+  --run-success: 142 69% 36%;
+  --run-success-soft: 142 69% 94%;
+  --run-success-soft-foreground: 142 69% 22%;
+  --run-running: 252 83% 62%;
+  --run-running-soft: 252 83% 96%;
+  --run-running-soft-foreground: 252 70% 40%;
+  --run-failed: 0 72% 50%;
+  --run-failed-soft: 0 72% 96%;
+  --run-failed-soft-foreground: 0 72% 34%;
+  --run-queued: 220 9% 50%;
+  --run-queued-soft: 220 16% 95%;
+  --run-queued-soft-foreground: 220 9% 36%;
+
+  /* ── Geometry ── */
+  --radius: 0.5rem;
+  --radius-sm: 0.375rem;
+  --radius-lg: 0.75rem;
+
+  /* ── Motion ── */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dark {
+  /* ── Surface ── */
+  --background: 224 44% 5%;
+  --foreground: 220 14% 96%;
+  --card: 224 34% 8%;
+  --card-foreground: 220 14% 96%;
+  --popover: 224 34% 9%;
+  --popover-foreground: 220 14% 96%;
+
+  /* ── Muted / accent / border / input ── */
+  --muted: 224 26% 13%;
+  --muted-foreground: 220 10% 62%;
+  --accent: 224 26% 15%;
+  --accent-foreground: 220 14% 96%;
+  --border: 224 24% 16%;
+  --border-strong: 224 22% 26%;
+  --input: 224 24% 16%;
+  --ring: 252 90% 70%;
+
+  /* ── Brand ── */
+  --primary: 252 90% 70%;
+  --primary-foreground: 250 40% 10%;
+  --primary-soft: 252 60% 18%;
+  --primary-soft-foreground: 252 90% 84%;
+  --secondary: 224 26% 13%;
+  --secondary-foreground: 220 14% 96%;
+
+  /* ── Status ── */
+  --success: 142 66% 46%;
+  --success-foreground: 140 40% 8%;
+  --success-soft: 142 60% 14%;
+  --success-soft-foreground: 142 66% 76%;
+
+  --warning: 32 92% 56%;
+  --warning-foreground: 30 40% 8%;
+  --warning-soft: 32 70% 14%;
+  --warning-soft-foreground: 32 92% 76%;
+
+  --danger: 0 78% 62%;
+  --danger-foreground: 0 40% 8%;
+  --danger-soft: 0 60% 16%;
+  --danger-soft-foreground: 0 82% 80%;
+
+  --info: 205 85% 58%;
+  --info-foreground: 205 40% 8%;
+  --info-soft: 205 65% 15%;
+  --info-soft-foreground: 205 85% 78%;
+
+  --destructive: var(--danger);
+  --destructive-foreground: var(--danger-foreground);
+
+  /* ── Severity ── */
+  --severity-critical: 0 78% 62%;
+  --severity-critical-soft: 0 60% 16%;
+  --severity-critical-soft-foreground: 0 82% 80%;
+  --severity-high: 22 86% 58%;
+  --severity-high-soft: 22 65% 15%;
+  --severity-high-soft-foreground: 22 86% 78%;
+  --severity-medium: 38 92% 56%;
+  --severity-medium-soft: 38 70% 14%;
+  --severity-medium-soft-foreground: 38 92% 76%;
+  --severity-low: 205 85% 58%;
+  --severity-low-soft: 205 65% 15%;
+  --severity-low-soft-foreground: 205 85% 78%;
+
+  /* ── Run state ── */
+  --run-success: 142 66% 46%;
+  --run-success-soft: 142 60% 14%;
+  --run-success-soft-foreground: 142 66% 76%;
+  --run-running: 252 90% 70%;
+  --run-running-soft: 252 60% 18%;
+  --run-running-soft-foreground: 252 90% 84%;
+  --run-failed: 0 78% 62%;
+  --run-failed-soft: 0 60% 16%;
+  --run-failed-soft-foreground: 0 82% 80%;
+  --run-queued: 220 10% 55%;
+  --run-queued-soft: 224 26% 14%;
+  --run-queued-soft-foreground: 220 10% 72%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground text-body antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  /* Consistent focus ring everywhere; never remove without a replacement. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer utilities {
+  /* Subtle grid texture used behind empty states and the app shell. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}

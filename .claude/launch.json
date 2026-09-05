@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nexus-web",
+      "runtimeExecutable": "/Users/mohanmadiraju/.nvm/versions/node/v22.22.0/bin/npm",
+      "runtimeArgs": ["--prefix", "apps/web", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}

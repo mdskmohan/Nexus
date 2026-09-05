@@ -46,11 +46,17 @@ def rank_hypotheses(
 
 ## TypeScript (apps/web)
 
+- **Node:** 20+ (`.nvmrc` pins 22). Next.js 14 refuses to build on anything
+  below 18.17, and the failure message is easy to miss in CI output.
 - **Formatting:** Prettier, 2-space indent, no semicolon debates — the config decides
 - **Linting:** ESLint with the Next.js config, `no-explicit-any` enabled
 - **Typing:** `strict: true`. No `any`, no non-null assertions without a comment.
 - **Components:** function components only. Props typed via an exported `interface`.
 - **State:** server components by default; `"use client"` only where interaction requires it.
+- **Hydration:** a client component that reads browser-only state (theme, viewport,
+  `localStorage`) must render output identical to the server on its first pass, and
+  only reflect real state after mount. Every theme-dependent attribute counts, labels
+  included — a mismatch tears down and rebuilds the tree.
 
 ## Design system
 

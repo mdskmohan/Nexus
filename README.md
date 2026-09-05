@@ -73,7 +73,8 @@ docs/              Architecture and ADRs
 
 ## Getting started
 
-Requirements: Python 3.11+, Node 20+.
+Requirements: Python 3.11+, **Node 20+** (Next.js 14 refuses to build on Node < 18.17;
+`.nvmrc` pins 22, so `nvm use` in `apps/web` picks the right one).
 
 ```bash
 make setup     # install backend and frontend dependencies
