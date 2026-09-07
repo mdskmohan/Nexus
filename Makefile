@@ -10,6 +10,12 @@ setup: ## Install backend and frontend dependencies
 api: ## Run the API on :8000
 	cd $(API) && ./.venv/bin/uvicorn nexus.main:app --reload --port 8000
 
+stack: ## Start the real local stack (Postgres + Airflow)
+	docker compose -f stack/docker-compose.yml up -d
+
+stack-down: ## Stop the local stack
+	docker compose -f stack/docker-compose.yml down
+
 web: ## Run the web app on :3000
 	cd $(WEB) && npm run dev
 

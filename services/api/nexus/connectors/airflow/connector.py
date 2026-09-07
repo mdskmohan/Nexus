@@ -16,6 +16,13 @@ from typing import Any
 
 from nexus.connectors.airflow.client import AirflowClient
 from nexus.connectors.base import ConnectorResult
+from nexus.connectors.spec import (
+    Category,
+    ConnectionField,
+    ConnectionTestResult,
+    ConnectorSpec,
+    FieldType,
+)
 from nexus.graph.entities import Edge, EdgeKind, Node, NodeKind
 
 SYSTEM = "airflow"
@@ -195,3 +202,59 @@ class AirflowConnector:
             return runs[0]
         self._client.dag(dag_id)  # raises AirflowError(404) if it does not exist
         return None
+
+
+SPEC = ConnectorSpec(
+    id=SYSTEM,
+    name="Apache Airflow",
+    category=Category.ORCHESTRATION,
+    description="Read DAG schedules, run state and task logs from a self-hosted Airflow.",
+    docs_url="https://airflow.apache.org/docs/apache-airflow/stable/stable-rest-api-ref.html",
+    verified=True,
+    fields=(
+        ConnectionField(
+            name="base_url",
+            label="Airflow URL",
+            placeholder="https://airflow.internal",
+            help="The webserver's base URL, without /api/v1.",
+        ),
+        ConnectionField(name="username", label="Username", placeholder="nexus"),
+        ConnectionField(name="password", label="Password", type=FieldType.SECRET),
+    ),
+)
+
+
+def test_connection(config: dict[str, Any]) -> ConnectionTestResult:
+    """Probe an Airflow configuration by reading health and listing DAGs.
+
+    Health alone is not enough: a webserver can be healthy while the API auth
+    backend rejects every request, so this also lists DAGs.
+    """
+    client = AirflowClient(
+        config["base_url"], config["username"], config["password"], timeout=10.0
+    )
+    try:
+        health = client.health()
+        dags = client.dags()
+    except Exception as exc:  # noqa: BLE001
+        return ConnectionTestResult.failure(str(exc)[:300])
+    finally:
+        client.close()
+
+    scheduler = (health.get("scheduler") or {}).get("status", "unknown")
+    if scheduler != "healthy":
+        return ConnectionTestResult.failure(
+            f"Connected, but the Airflow scheduler reports '{scheduler}'. "
+            "Run state will be stale until it recovers."
+        )
+    if not dags:
+        return ConnectionTestResult.failure(
+            "Connected, but no DAGs are visible. Check the user's role has Viewer "
+            "permission on DAGs."
+        )
+    return ConnectionTestResult.success(
+        f"Connected to Airflow: {len(dags)} DAG(s) visible",
+        scheduler=scheduler,
+        dags_visible=str(len(dags)),
+        metadatabase=(health.get("metadatabase") or {}).get("status", "unknown"),
+    )

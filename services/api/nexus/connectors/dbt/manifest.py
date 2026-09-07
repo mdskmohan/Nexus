@@ -23,6 +23,12 @@ from pathlib import Path
 from typing import Any
 
 from nexus.connectors.base import ConnectorResult
+from nexus.connectors.spec import (
+    Category,
+    ConnectionField,
+    ConnectionTestResult,
+    ConnectorSpec,
+)
 from nexus.errors import NexusError
 from nexus.graph.entities import Edge, EdgeKind, Node, NodeKind
 
@@ -246,3 +252,44 @@ class DbtManifestConnector:
         dangling = sorted({e.source for e in result.edges if e.source not in known})
         for node_id in dangling:
             result.warnings.append(f"edge references unknown node {node_id}")
+
+
+SPEC = ConnectorSpec(
+    id=SYSTEM,
+    name="dbt Core",
+    category=Category.TRANSFORMATION,
+    description="Read the model DAG, SQL, tests and freshness from a dbt manifest.",
+    verified=True,
+    fields=(
+        ConnectionField(
+            name="manifest_path",
+            label="Path to manifest.json",
+            placeholder="/path/to/target/manifest.json",
+            help="Produced by `dbt parse` or any dbt run. For dbt Cloud, use the "
+            "dbt Cloud connector instead — it fetches this automatically.",
+        ),
+    ),
+)
+
+
+def test_connection(config: dict[str, Any]) -> ConnectionTestResult:
+    """Probe a dbt configuration by actually parsing the manifest."""
+    try:
+        result = DbtManifestConnector(config["manifest_path"]).collect()
+    except ManifestError as exc:
+        return ConnectionTestResult.failure(str(exc))
+    except KeyError as exc:
+        return ConnectionTestResult.failure(f"missing configuration: {exc}")
+
+    models = sum(1 for n in result.nodes if n.kind is NodeKind.MODEL)
+    if not models:
+        return ConnectionTestResult.failure(
+            "The manifest parsed, but declares no models. Check this is the manifest "
+            "for the project you meant."
+        )
+    return ConnectionTestResult.success(
+        f"Parsed manifest: {models} model(s), {len(result.nodes)} node(s)",
+        models=str(models),
+        nodes=str(len(result.nodes)),
+        edges=str(len(result.edges)),
+    )
