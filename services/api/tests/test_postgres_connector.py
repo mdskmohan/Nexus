@@ -71,85 +71,112 @@ class TestSnapshot:
 
 
 class TestRealDrift:
-    """Alters the live schema, then restores it."""
+    """Applies real DDL to a table this suite owns.
 
-    def test_type_change_is_detected(self, connector, connection) -> None:
+    Deliberately not `raw.salesforce_account`: dbt builds views on that column,
+    and Postgres refuses to alter a column a view depends on. Mutating shared
+    tables also makes results depend on whether the DAG has run, which is exactly
+    the kind of order-dependence that makes a suite untrustworthy.
+    """
+
+    @pytest.fixture
+    def probe(self, connection):
+        """A throwaway table created and dropped around each test."""
+        with connection.cursor() as cur:
+            cur.execute("DROP TABLE IF EXISTS raw.nexus_drift_probe")
+            cur.execute(
+                "CREATE TABLE raw.nexus_drift_probe ("
+                "  id integer NOT NULL,"
+                "  label text,"
+                "  retired_at timestamp"
+                ")"
+            )
+        yield "analytics.raw.nexus_drift_probe"
+        with connection.cursor() as cur:
+            cur.execute("DROP TABLE IF EXISTS raw.nexus_drift_probe")
+
+    def test_type_change_is_detected(self, connector, connection, probe) -> None:
         """The reference incident: an upstream id migrating from integer to string."""
         before = connector.snapshot()
         time.sleep(0.01)
         with connection.cursor() as cur:
             cur.execute(
-                "ALTER TABLE raw.salesforce_account "
+                "ALTER TABLE raw.nexus_drift_probe "
                 "ALTER COLUMN id TYPE varchar(18) USING id::varchar"
             )
-        try:
-            changes = diff_snapshots(before, connector.snapshot())
-            drift = [c for c in changes if c.kind is ChangeKind.TYPE_CHANGED]
-            assert len(drift) == 1
-            assert drift[0].column == "id"
-            assert drift[0].before == "integer"
-            assert drift[0].after == "string"
-            assert drift[0].is_breaking
-            assert (
-                drift[0].describe()
-                == "analytics.raw.salesforce_account.id changed from integer to string"
-            )
-            # The window is what makes the claim citable.
-            assert drift[0].observed_before < drift[0].observed_after
-        finally:
-            with connection.cursor() as cur:
-                cur.execute(
-                    "ALTER TABLE raw.salesforce_account "
-                    "ALTER COLUMN id TYPE integer USING id::integer"
-                )
 
-    def test_dropped_column_is_detected(self, connector, connection) -> None:
+        drift = [
+            c
+            for c in diff_snapshots(before, connector.snapshot())
+            if c.kind is ChangeKind.TYPE_CHANGED and c.table == probe
+        ]
+        assert len(drift) == 1
+        assert drift[0].column == "id"
+        assert drift[0].before == "integer"
+        assert drift[0].after == "string"
+        assert drift[0].is_breaking
+        assert drift[0].describe() == f"{probe}.id changed from integer to string"
+        # The observation window is what makes the claim citable.
+        assert drift[0].observed_before < drift[0].observed_after
+
+    def test_nullability_change_is_detected(self, connector, connection, probe) -> None:
         before = connector.snapshot()
         time.sleep(0.01)
         with connection.cursor() as cur:
-            cur.execute("ALTER TABLE raw.app_users DROP COLUMN email")
-        try:
-            changes = diff_snapshots(before, connector.snapshot())
-            dropped = [c for c in changes if c.kind is ChangeKind.COLUMN_REMOVED]
-            assert [c.column for c in dropped] == ["email"]
-            assert dropped[0].is_breaking
-        finally:
-            with connection.cursor() as cur:
-                cur.execute("ALTER TABLE raw.app_users ADD COLUMN email text")
+            cur.execute("ALTER TABLE raw.nexus_drift_probe ALTER COLUMN id DROP NOT NULL")
 
-    def test_added_column_is_not_breaking(self, connector, connection) -> None:
+        changed = [
+            c
+            for c in diff_snapshots(before, connector.snapshot())
+            if c.kind is ChangeKind.NULLABILITY_CHANGED and c.table == probe
+        ]
+        assert len(changed) == 1
+        assert changed[0].before == "not null"
+        assert changed[0].after == "nullable"
+        assert changed[0].is_breaking
+
+    def test_dropped_column_is_detected(self, connector, connection, probe) -> None:
+        before = connector.snapshot()
+        time.sleep(0.01)
+        with connection.cursor() as cur:
+            cur.execute("ALTER TABLE raw.nexus_drift_probe DROP COLUMN label")
+
+        dropped = [
+            c
+            for c in diff_snapshots(before, connector.snapshot())
+            if c.kind is ChangeKind.COLUMN_REMOVED and c.table == probe
+        ]
+        assert [c.column for c in dropped] == ["label"]
+        assert dropped[0].is_breaking
+
+    def test_added_column_is_not_breaking(self, connector, connection, probe) -> None:
         """Additive changes are reported but must not be raised as candidate causes."""
         before = connector.snapshot()
         time.sleep(0.01)
         with connection.cursor() as cur:
-            cur.execute("ALTER TABLE raw.app_users ADD COLUMN signup_source text")
-        try:
-            added = [
-                c
-                for c in diff_snapshots(before, connector.snapshot())
-                if c.kind is ChangeKind.COLUMN_ADDED
-            ]
-            assert [c.column for c in added] == ["signup_source"]
-            assert not added[0].is_breaking
-        finally:
-            with connection.cursor() as cur:
-                cur.execute("ALTER TABLE raw.app_users DROP COLUMN signup_source")
+            cur.execute("ALTER TABLE raw.nexus_drift_probe ADD COLUMN source text")
 
-    def test_new_table_is_detected(self, connector, connection) -> None:
+        added = [
+            c
+            for c in diff_snapshots(before, connector.snapshot())
+            if c.kind is ChangeKind.COLUMN_ADDED and c.table == probe
+        ]
+        assert [c.column for c in added] == ["source"]
+        assert not added[0].is_breaking
+
+    def test_dropped_table_is_detected(self, connector, connection, probe) -> None:
         before = connector.snapshot()
         time.sleep(0.01)
         with connection.cursor() as cur:
-            cur.execute("CREATE TABLE raw.tmp_probe (id integer)")
-        try:
-            added = [
-                c
-                for c in diff_snapshots(before, connector.snapshot())
-                if c.kind is ChangeKind.TABLE_ADDED
-            ]
-            assert [c.table for c in added] == ["analytics.raw.tmp_probe"]
-        finally:
-            with connection.cursor() as cur:
-                cur.execute("DROP TABLE raw.tmp_probe")
+            cur.execute("DROP TABLE raw.nexus_drift_probe")
+
+        dropped = [
+            c
+            for c in diff_snapshots(before, connector.snapshot())
+            if c.kind is ChangeKind.TABLE_REMOVED and c.table == probe
+        ]
+        assert len(dropped) == 1
+        assert dropped[0].is_breaking
 
 
 class TestGraphEntities:
