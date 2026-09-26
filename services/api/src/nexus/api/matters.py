@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from nexus import audit, jobs, storage
+from nexus.agents.draft import SAFE_NAME
 from nexus.api.deps import Principal, attachment, db, found, principal, require
 from nexus.config import settings
 from nexus.db import row, rows, scalar
@@ -33,6 +34,11 @@ class MatterUpdate(BaseModel):
 
 class Question(BaseModel):
     question: str = Field(min_length=3, max_length=4000)
+
+
+class DraftRequest(BaseModel):
+    instructions: str = Field(min_length=10, max_length=20000)
+    deliverables: list[str] = Field(default_factory=lambda: ["draft.docx"], min_length=1, max_length=6)
 
 
 class ReviewRequest(BaseModel):
@@ -218,3 +224,20 @@ def review(matter_id: UUID, body: ReviewRequest, who: Principal = Depends(princi
     data = {"document_id": str(body.document_id), "playbook_id": str(body.playbook_id),
             "client_role": body.client_role.strip(), "instructions": body.instructions.strip()}
     return _start_run(s, who, matter_id, "review", f"Review of {doc['filename']} — {playbook['name']}", data)
+
+
+@router.post("/matters/{matter_id}/drafts", status_code=201)
+def draft(matter_id: UUID, body: DraftRequest, who: Principal = Depends(principal),
+          s: Session = Depends(db)) -> dict:
+    found(row(s, "SELECT id FROM matters WHERE id = :m", m=matter_id), "No such matter.")
+    if not _ready_documents(s, matter_id):
+        raise HTTPException(409, "Add at least one document to this matter first (and wait for it to finish processing).")
+    names = [n.strip() for n in body.deliverables]
+    bad = [n for n in names if not SAFE_NAME.match(n)]
+    if bad:
+        raise HTTPException(422, f"File names must end in .docx, .xlsx or .md and use ordinary characters: {', '.join(bad)}")
+    if len(set(n.lower() for n in names)) != len(names):
+        raise HTTPException(422, "Each file needs a different name.")
+    title = f"Draft: {', '.join(names)}"
+    return _start_run(s, who, matter_id, "draft", title,
+                      {"instructions": body.instructions.strip(), "deliverables": names})

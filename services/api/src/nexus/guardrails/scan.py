@@ -68,6 +68,19 @@ class ScanResult:
         }
 
 
+def _excerpt(text: str, match: re.Match, context: int = 60) -> str:
+    """The match with some context on each side, cut at whole words."""
+    start = max(0, match.start() - context)
+    end = min(len(text), match.end() + context)
+    if start > 0:
+        space = text.find(" ", start)
+        start = space + 1 if 0 <= space < match.start() else start
+    if end < len(text):
+        space = text.rfind(" ", match.end(), end)
+        end = space if space > match.end() else end
+    return ("…" if start > 0 else "") + text[start:end].strip() + ("…" if end < len(text) else "")
+
+
 def scan(passages: list[tuple[int, int, str]]) -> ScanResult:
     """`passages` is (seq, page, text)."""
     result = ScanResult()
@@ -75,10 +88,8 @@ def scan(passages: list[tuple[int, int, str]]) -> ScanResult:
         for pattern, label in _INJECTION:
             match = pattern.search(text)
             if match:
-                start = max(0, match.start() - 60)
                 result.hidden_instructions.append(
-                    {"seq": seq, "page": page, "why": label,
-                     "excerpt": text[start : match.end() + 60].strip()}
+                    {"seq": seq, "page": page, "why": label, "excerpt": _excerpt(text, match)}
                 )
                 break
         for label, counter in _SENSITIVE:

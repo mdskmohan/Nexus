@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from nexus.db import rows
 
-_COLUMNS = """p.id, p.document_id, d.filename, p.page, p.seq, p.heading, p.text"""
+_COLUMNS = """p.id, p.document_id, d.filename, d.content_type, p.page, p.seq, p.heading, p.text"""
 
 
 def _any_terms_query(query: str) -> str:

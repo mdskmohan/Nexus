@@ -3,8 +3,9 @@
 from dataclasses import dataclass, field
 
 from nexus import search as search_index
-from nexus.agents.base import UUID_RE, Agent
+from nexus.agents.base import UUID_RE, Agent, location
 from nexus.guardrails.citations import verify_quote
+from nexus.ingest.extract import PAGED
 
 CITATION_SCHEMA = {
     "type": "object",
@@ -51,7 +52,9 @@ def check(agent: Agent, citations: list[dict]) -> tuple[list[dict], CitationRepo
         entry = {"passage_id": pid, "quote": quote, "verified": verified}
         if passage is not None:
             entry.update(document_id=str(passage["document_id"]), document=passage["filename"],
-                         page=passage["page"], position=passage["seq"], heading=passage["heading"])
+                         page=passage["page"], position=passage["seq"], heading=passage["heading"],
+                         location=location(passage),
+                         location_label=PAGED.get(passage.get("content_type", ""), ""))
         if verified:
             report.verified += 1
         else:

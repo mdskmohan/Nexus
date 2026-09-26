@@ -2,27 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "nexus-web",
-      "runtimeExecutable": "/Users/mohanmadiraju/.nvm/versions/node/v22.22.0/bin/npm",
-      "runtimeArgs": [
-        "--prefix",
-        "/Users/mohanmadiraju/Desktop/Nexus/apps/web",
-        "run",
-        "dev"
-      ],
-      "port": 3000
-    },
-    {
-      "name": "nexus-api",
-      "runtimeExecutable": "/Users/mohanmadiraju/Desktop/Nexus/services/api/.venv/bin/uvicorn",
-      "runtimeArgs": [
-        "nexus.main:app",
-        "--port",
-        "8000",
-        "--app-dir",
-        "/Users/mohanmadiraju/Desktop/Nexus/services/api"
-      ],
-      "port": 8000
+      "name": "nexus",
+      "runtimeExecutable": "/Users/mohanmadiraju/Desktop/Nexus/scripts/dev.sh",
+      "runtimeArgs": [],
+      "port": 3100
     }
   ]
 }

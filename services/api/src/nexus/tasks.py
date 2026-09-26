@@ -5,9 +5,10 @@ import logging
 
 from sqlalchemy import text
 
-from nexus import audit, jobs, llm, redline, storage
+from nexus import audit, deliverables, jobs, llm, redline, storage
 from nexus.agents.ask import AskAgent
 from nexus.agents.base import RunStopped
+from nexus.agents.draft import DraftAgent
 from nexus.agents.review import ReviewAgent
 from nexus.db import row, scalar, tenant
 from nexus.guardrails.scan import scan
@@ -76,6 +77,8 @@ def run_agent(firm_id: str, payload: dict) -> None:
         result = agent.run()
         if run["kind"] == "review":
             result["files"] = _review_files(firm_id, run, result)
+        elif run["kind"] == "draft":
+            result["files"] = _draft_files(firm_id, run, result)
         recorder.finish(result, agent.guardrail_summary())
         with tenant(firm_id) as s:
             audit.record(s, firm_id, run["created_by"], "run.completed", "run", run_id,
@@ -95,12 +98,38 @@ def _build_agent(firm_id: str, run: dict):
     data = run["input"]
     if run["kind"] == "ask":
         return AskAgent(firm_id, run["matter_id"], run["id"], data["question"])
+    if run["kind"] == "draft":
+        return DraftAgent(firm_id, run["matter_id"], run["id"], data["instructions"], data["deliverables"])
     with tenant(firm_id) as s:
         playbook = row(s, "SELECT * FROM playbooks WHERE id = :p", p=data["playbook_id"])
     if playbook is None:
         raise RunStopped("The playbook for this review no longer exists.")
     return ReviewAgent(firm_id, run["matter_id"], run["id"], data["document_id"], playbook,
                        data.get("client_role", ""), data.get("instructions", ""))
+
+
+def _save_files(firm_id: str, run_id: str, files: list[tuple[str, bytes, str]]) -> list[dict]:
+    out = []
+    with tenant(firm_id) as s:
+        for name, data, content_type in files:
+            suffix = "." + name.rsplit(".", 1)[-1] if "." in name else ""
+            key = storage.put(firm_id, "artifacts", data, suffix)
+            artifact_id = scalar(
+                s,
+                """INSERT INTO artifacts (firm_id, run_id, filename, content_type, storage_key)
+                   VALUES (:f, :r, :n, :ct, :k) RETURNING id""",
+                f=firm_id, r=run_id, n=name, ct=content_type, k=key,
+            )
+            out.append({"id": str(artifact_id), "filename": name})
+    return out
+
+
+def _draft_files(firm_id: str, run: dict, result: dict) -> list[dict]:
+    files = []
+    for d in result["deliverables"]:
+        data, content_type = deliverables.render(d["filename"], d["content"], d["sources"])
+        files.append((d["filename"], data, content_type))
+    return _save_files(firm_id, str(run["id"]), files)
 
 
 def _review_files(firm_id: str, run: dict, result: dict) -> list[dict]:
@@ -116,17 +145,7 @@ def _review_files(firm_id: str, run: dict, result: dict) -> list[dict]:
     if doc["content_type"] == DOCX:
         data, placement = redline.tracked_changes(storage.get(doc["storage_key"]), result["findings"])
         files.append((f"{stem} - suggested changes.docx", data))
-    out = []
-    with tenant(firm_id) as s:
-        for name, data in files:
-            key = storage.put(firm_id, "artifacts", data, ".docx")
-            artifact_id = scalar(
-                s,
-                """INSERT INTO artifacts (firm_id, run_id, filename, content_type, storage_key)
-                   VALUES (:f, :r, :n, :ct, :k) RETURNING id""",
-                f=firm_id, r=str(run["id"]), n=name, ct=DOCX, k=key,
-            )
-            out.append({"id": str(artifact_id), "filename": name})
+    out = _save_files(firm_id, str(run["id"]), [(n, d, DOCX) for n, d in files])
     if placement and placement["not_placed"]:
         result["redline_not_placed"] = placement["not_placed"]
     return out

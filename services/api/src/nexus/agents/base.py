@@ -171,13 +171,21 @@ class Agent:
                     "is_error": True}
 
 
+def location(p: dict) -> str:
+    """'page 3', 'sheet 2', 'slide 4', or '' for unpaged documents."""
+    from nexus.ingest.extract import PAGED
+
+    label = PAGED.get(p.get("content_type", ""))
+    return f"{label} {p['page']}" if label else ""
+
+
 def passage_ref(p: dict) -> dict:
     """How a passage is shown to the model."""
     return {
         "passage_id": str(p["id"]),
         "document": p["filename"],
         "document_id": str(p["document_id"]),
-        "page": p["page"],
+        "location": location(p),
         "position": p["seq"],
         "heading": p["heading"],
         "text": p["text"],

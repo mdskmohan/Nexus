@@ -6,7 +6,16 @@ database would refuse another firm's rows even if there were.
 """
 
 from nexus import search as search_index
-from nexus.agents.base import Agent, Tool, ToolError, ToolOutcome, dumps, passage_ref, valid_uuid
+from nexus.agents.base import (
+    Agent,
+    Tool,
+    ToolError,
+    ToolOutcome,
+    dumps,
+    location,
+    passage_ref,
+    valid_uuid,
+)
 from nexus.db import rows
 
 MAX_READ = 8
@@ -73,10 +82,10 @@ def matter_tools(agent: Agent, only_document: str | None = None) -> list[Tool]:
         if not found:
             raise ToolError("No passages at that position. Positions start at 0; check the document's passage count.")
         remember(found)
-        pages = sorted({p["page"] for p in found})
-        where = f"page {pages[0]}" if len(pages) == 1 else f"pages {pages[0]}–{pages[-1]}"
+        places = [location(p) for p in (found[0], found[-1]) if location(p)]
+        where = (f", {places[0]}" if len(set(places)) == 1 else f", {places[0]} to {places[-1]}") if places else ""
         return ToolOutcome(dumps([passage_ref(p) for p in found]),
-                           f"Read {found[0]['filename']}, {where}.", kind="read",
+                           f"Read {found[0]['filename']}{where}.", kind="read",
                            detail={"passages": [str(p["id"]) for p in found]})
 
     doc_param = {} if only_document else {

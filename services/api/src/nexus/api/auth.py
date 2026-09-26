@@ -26,8 +26,10 @@ class SignUp(BaseModel):
 
 
 class SignIn(BaseModel):
-    email: EmailStr
-    password: str
+    # Not EmailStr: sign-in only needs to match an existing account, and a
+    # format error here would tell people less than "email and password do not match".
+    email: str = Field(max_length=320)
+    password: str = Field(max_length=200)
 
 
 class NewMember(BaseModel):
