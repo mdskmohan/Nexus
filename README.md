@@ -1,101 +1,57 @@
 # Nexus
 
-**The AI control plane for enterprise data engineering.**
+**An AI legal team for firms that can't afford Harvey.**
 
-A customer describes what they need. Nexus designs the pipeline end to end, compiles it
-onto their existing stack, deploys it, and then operates it — monitoring, diagnosing
-failures, and proposing verified repairs.
+Nexus gives a 5-lawyer firm the same agentic legal AI a 2,000-lawyer firm gets:
+agents that read the matter file, do the work, cite every claim to its source,
+and hand back something a lawyer can sign off on.
 
-Nexus does not replace Snowflake, Databricks, dbt, Airflow or Fivetran. It operates them.
-
----
-
-## The one-line pitch
-
-> Describe the data product you need. We design it, build it on your stack, and keep it running.
-
-## What Nexus is not
-
-- Not another orchestrator, warehouse, or dbt alternative
-- Not another observability dashboard
-- Not a vendor-recommendation engine — Nexus compiles onto the platform you already chose
-  (see [ADR-004](docs/adr/ADR-004-no-vendor-recommendation.md))
-- Not an LLM wrapper. The model reasons; the control plane decides what it may touch.
+> The previous product in this repo (a data-pipeline control plane) is preserved
+> at the git tag `archive/data-pipelines-v0`.
 
 ---
 
-## Architecture in one picture
+## Why this can win
 
-```
-   Use case (natural language + structured intake)
-        │
-        ▼  design
-   ┌─────────────────┐
-   │  PipelineSpec   │  vendor-neutral IR — the durable artifact
-   └─────────────────┘
-        │
-        ├──► compile ──► dbt project + Airflow DAG + warehouse DDL
-        │
-        ▼  deploy
-   Running pipeline on the customer's stack
-        │
-        ▼  observe
-   ┌─────────────────┐
-   │ Environment     │  entities, lineage, ownership, runtime history
-   │ Graph           │
-   └─────────────────┘
-        │
-        ▼  on failure
-   Evidence collectors ──► ranked hypotheses ──► root cause
-        │
-        ▼
-   Remediation (PR) ──► sandbox validation ──► policy gate ──► deploy ──► verify
-```
+Harvey sells top-down to big law and enterprise legal departments: long sales
+cycles, custom deployments, pricing to match. That leaves most of the market
+unserved — the tens of thousands of small and mid-size firms and solo
+practitioners who do the same kinds of work with far fewer people.
 
-The `PipelineSpec` is the centre of the system. Creation compiles *out* of it; adopting an
-existing pipeline lifts *into* it. Both directions serve the same diagnosis engine.
-See [ADR-001](docs/adr/ADR-001-pipeline-spec-as-core-abstraction.md).
+We start there and grow up-market. Three rules:
 
----
+1. **Big-firm quality, small-firm effort.** Sign up, drop in documents, get
+   useful work back in the first ten minutes. No sales call, no onboarding project.
+2. **Nothing unverified reaches the lawyer.** Every statement links to the page
+   and passage it came from. A citation we cannot verify is not shown. Invented
+   case law gets lawyers sanctioned; this is the trust line we never cross.
+3. **Agents do whole tasks, not chat turns.** "Review this NDA against our
+   playbook, redline it, and draft the cover email" is one request with one
+   reviewable result.
 
-## Repository layout
+## What we build first
 
-```
-apps/web/          Next.js 14 App Router frontend
-services/api/      FastAPI backend
-  nexus/ir/          PipelineSpec — the vendor-neutral IR
-  nexus/compiler/    IR -> vendor artifacts (dbt, Airflow, DDL)
-  nexus/graph/       Environment graph: entities, edges, traversal
-  nexus/diagnosis/   Evidence collectors and hypothesis ranking
-  nexus/policy/      Autonomy levels and action gating
-docs/              Architecture and ADRs
-```
+Work where correctness can be checked against the documents themselves — so we
+can ship without licensed case-law databases or an in-house legal expert:
 
-## Getting started
+| # | Capability | What the lawyer gets |
+|---|---|---|
+| 1 | **Matter workspace** | Upload a matter's files; everything is searchable and citable to page and passage |
+| 2 | **Ask the file** | Answers about the documents, each sentence linked to its source |
+| 3 | **Contract review agent** | Clause-by-clause issues against a firm playbook, with a redlined .docx |
+| 4 | **Drafting from the firm's own precedents** | First drafts that follow how *this* firm writes |
+| 5 | **Firm memory** | Preferences and playbooks learned once, applied to every task |
 
-Requirements: Python 3.11+, **Node 20+** (Next.js 14 refuses to build on Node < 18.17;
-`.nvmrc` pins 22, so `nvm use` in `apps/web` picks the right one).
+Later: legal research with verified citations (starting from public sources
+such as CourtListener), Word and Outlook add-ins, integrations with practice
+management tools (Clio, MyCase), and multi-step agents that chain tasks together.
 
-```bash
-make setup     # install backend and frontend dependencies
-make dev       # run API on :8000 and web on :3000
-make test      # run the full test suite
-make check     # lint, format check, and type check
-```
+## Known gaps
 
-## Documentation
-
-| Document | Purpose |
-| --- | --- |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the system fits together and why, with build status |
-| [integrations.md](docs/integrations.md) | Every integration, its tier and its live status |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Coding standards and review expectations |
-| [docs/adr/](docs/adr/README.md) | Architecture decision records, indexed, plus open questions |
-
-Integration priorities are set in [ADR-005](docs/adr/ADR-005-integration-priorities.md).
-V1 needs five: dbt, Airflow, Snowflake, GitHub and PostgreSQL.
-
-## Status
-
-Pre-alpha. The IR and compiler are under active development; nothing here has been run
-against a production customer environment.
+- **No legal expert on the team yet.** Until we have one, "correct" is defined
+  only where it can be checked against source documents. Playbooks and review
+  checklists must be validated by practising lawyers before any are presented as
+  legal standards. Recruiting a lawyer advisor is the first non-code task.
+- **Security and confidentiality** are table stakes for law firms (client
+  privilege, no training on customer data, data residency). These are designed
+  in from the first commit, not added later.
