@@ -83,7 +83,11 @@ def run_agent(firm_id: str, payload: dict) -> None:
         with tenant(firm_id) as s:
             audit.record(s, firm_id, run["created_by"], "run.completed", "run", run_id,
                          kind=run["kind"], cost_usd=round(recorder.usage.cost_usd, 4))
-    except (RunStopped, llm.ModelUnavailable) as exc:
+    except llm.ModelUnavailable as exc:
+        log.error("run %s: %s", run_id, exc.technical)
+        recorder.step("error", str(exc), status="error", error=exc.technical)
+        recorder.fail(str(exc))
+    except RunStopped as exc:
         recorder.step("error", str(exc), status="error")
         recorder.fail(str(exc))
     except Exception as exc:
@@ -100,12 +104,14 @@ def _build_agent(firm_id: str, run: dict):
         return AskAgent(firm_id, run["matter_id"], run["id"], data["question"])
     if run["kind"] == "draft":
         return DraftAgent(firm_id, run["matter_id"], run["id"], data["instructions"], data["deliverables"])
-    with tenant(firm_id) as s:
-        playbook = row(s, "SELECT * FROM playbooks WHERE id = :p", p=data["playbook_id"])
-    if playbook is None:
-        raise RunStopped("The playbook for this review no longer exists.")
-    return ReviewAgent(firm_id, run["matter_id"], run["id"], data["document_id"], playbook,
-                       data.get("client_role", ""), data.get("instructions", ""))
+    if run["kind"] == "review":
+        with tenant(firm_id) as s:
+            playbook = row(s, "SELECT * FROM playbooks WHERE id = :p", p=data["playbook_id"])
+        if playbook is None:
+            raise RunStopped("The playbook for this review no longer exists.")
+        return ReviewAgent(firm_id, run["matter_id"], run["id"], data["document_id"], playbook,
+                           data.get("client_role", ""), data.get("instructions", ""))
+    raise RuntimeError(f"unknown run kind {run['kind']!r}")
 
 
 def _save_files(firm_id: str, run_id: str, files: list[tuple[str, bytes, str]]) -> list[dict]:

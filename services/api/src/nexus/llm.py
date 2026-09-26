@@ -25,7 +25,17 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
 class ModelUnavailable(RuntimeError):
-    """No credentials, or the provider rejected the request outright."""
+    """No credentials, or the provider rejected the request outright.
+
+    The message is shown to lawyers; `technical` is for logs and step detail.
+    """
+
+    def __init__(self, message: str, technical: str):
+        super().__init__(message)
+        self.technical = technical
+
+
+_ASK_ADMIN = "The AI is not connected. Ask your administrator to check the AI key."
 
 
 @dataclass
@@ -90,15 +100,16 @@ def call(*, system: str, messages: list, tools: list | None = None, max_tokens: 
         else:
             response = client().messages.create(**params)
     except anthropic.AuthenticationError as exc:
-        raise ModelUnavailable("The AI service rejected the API key. Check ANTHROPIC_API_KEY.") from exc
+        raise ModelUnavailable(_ASK_ADMIN, "Anthropic rejected ANTHROPIC_API_KEY (401).") from exc
     except anthropic.PermissionDeniedError as exc:
-        raise ModelUnavailable("This API key is not allowed to use the configured model.") from exc
+        raise ModelUnavailable(_ASK_ADMIN, f"API key lacks permission for model {model} (403).") from exc
     except anthropic.NotFoundError as exc:
-        raise ModelUnavailable(f"The configured model '{model}' was not found.") from exc
+        raise ModelUnavailable(_ASK_ADMIN, f"Model {model} not found (404); check NEXUS_MODEL.") from exc
     except TypeError as exc:
         # Raised by the SDK when no credentials can be resolved at all.
         if "api_key" in str(exc) or "auth" in str(exc).lower():
-            raise ModelUnavailable("No AI API key is configured. Set ANTHROPIC_API_KEY in .env.") from exc
+            raise ModelUnavailable("The AI is not connected yet. Ask your administrator to add the AI key.",
+                                   "No credentials: set ANTHROPIC_API_KEY in .env.") from exc
         raise
     return response, usage_of(response, response.model or model)
 

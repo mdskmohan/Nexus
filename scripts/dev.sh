@@ -15,7 +15,8 @@ trap cleanup EXIT INT TERM
 
 (cd services/api && exec uv run uvicorn nexus.main:app --port 8100 --reload --reload-dir src) &
 pids+=($!)
-(cd services/api && exec uv run nexus-worker) &
+# The worker restarts on code changes too (watchfiles ships with uvicorn[standard]).
+(cd services/api && exec uv run watchfiles --filter python nexus-worker src) &
 pids+=($!)
 
 # Next.js needs Node >= 20.9; use nvm's Node 22 when it is installed.

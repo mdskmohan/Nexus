@@ -1,57 +1,72 @@
 # Nexus
 
-**An AI legal team for firms that can't afford Harvey.**
+**An AI legal team for every firm, with every answer checked against your documents.**
 
-Nexus gives a 5-lawyer firm the same agentic legal AI a 2,000-lawyer firm gets:
-agents that read the matter file, do the work, cite every claim to its source,
-and hand back something a lawyer can sign off on.
+Nexus reads a matter's documents and does the work a firm needs from them:
 
-> The previous product in this repo (a data-pipeline control plane) is preserved
-> at the git tag `archive/data-pipelines-v0`.
+- **Ask**: answers questions about the file, and every statement links to the exact words it relies on.
+- **Review**: checks a contract against the firm's playbook, clause by clause, and returns a review memo
+  and a Word copy with the suggested changes as tracked changes.
+- **Draft**: writes memos, schedules and client updates as Word or Excel files, and every fact carries a source.
+
+Before a lawyer sees anything, **every quote is verified word for word against the source document**.
+Statements that cannot be verified are removed or visibly marked, never presented as sourced.
+
+> The previous product in this repository (a data-pipeline control plane) is preserved at the git tag
+> `archive/data-pipelines-v0`.
 
 ---
 
 ## Why this can win
 
-Harvey sells top-down to big law and enterprise legal departments: long sales
-cycles, custom deployments, pricing to match. That leaves most of the market
-unserved — the tens of thousands of small and mid-size firms and solo
-practitioners who do the same kinds of work with far fewer people.
+Harvey sells top-down to large firms and enterprise legal departments. Most of the market, the small
+and mid-size firms and solo practitioners, does the same kinds of work with far fewer people and is
+underserved. Nexus starts there and grows up-market, on three rules:
 
-We start there and grow up-market. Three rules:
+1. **Big-firm quality, small-firm effort.** Sign up, add documents, and get useful, checked work in
+   minutes. No sales call, no implementation project.
+2. **Nothing unverified reaches the lawyer.** Provenance is checked in code, not requested in a prompt
+   ([ADR-002](docs/adr/ADR-002-verify-citations-in-code.md)).
+3. **Agents do whole tasks.** "Review this NDA against our playbook, mark it up and draft the cover
+   note" is one request with one reviewable result.
 
-1. **Big-firm quality, small-firm effort.** Sign up, drop in documents, get
-   useful work back in the first ten minutes. No sales call, no onboarding project.
-2. **Nothing unverified reaches the lawyer.** Every statement links to the page
-   and passage it came from. A citation we cannot verify is not shown. Invented
-   case law gets lawyers sanctioned; this is the trust line we never cross.
-3. **Agents do whole tasks, not chat turns.** "Review this NDA against our
-   playbook, redline it, and draft the cover email" is one request with one
-   reviewable result.
+## What is built
 
-## What we build first
+| Area | |
+|---|---|
+| Agents | Ask, contract review against playbooks, drafting (Word/Excel); bounded steps and spend |
+| Guardrails | Word-for-word citation checks; matter-scoped tools; database-enforced firm isolation; hidden-instruction and sensitive-number scans; human sign-off by role; append-only audit trail |
+| Observability | Live plain-language activity for every task; tokens, cost and timing per task; firm-wide safety dashboard |
+| Documents | PDF, Word, Excel, PowerPoint, email, text; search by clause and heading |
+| Product | Matters, team roles, firm preferences read by every task, playbooks with lawyer approval |
+| Benchmarks | LegalBench (incl. CUAD, ContractNLI, MAUD) and Harvey LAB, with official data and graders |
 
-Work where correctness can be checked against the documents themselves — so we
-can ship without licensed case-law databases or an in-house legal expert:
+## Quick start
 
-| # | Capability | What the lawyer gets |
-|---|---|---|
-| 1 | **Matter workspace** | Upload a matter's files; everything is searchable and citable to page and passage |
-| 2 | **Ask the file** | Answers about the documents, each sentence linked to its source |
-| 3 | **Contract review agent** | Clause-by-clause issues against a firm playbook, with a redlined .docx |
-| 4 | **Drafting from the firm's own precedents** | First drafts that follow how *this* firm writes |
-| 5 | **Firm memory** | Preferences and playbooks learned once, applied to every task |
+Requirements: Docker, Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 20.9+.
 
-Later: legal research with verified citations (starting from public sources
-such as CourtListener), Word and Outlook add-ins, integrations with practice
-management tools (Clio, MyCase), and multi-step agents that chain tasks together.
+```bash
+cp .env.example .env          # add ANTHROPIC_API_KEY and a NEXUS_JWT_SECRET
+make dev                      # database, API, worker and web app
+cd services/api && uv run nexus-seed-demo   # optional: a demo firm with a sample NDA
+```
 
-## Known gaps
+Open http://localhost:3100.
 
-- **No legal expert on the team yet.** Until we have one, "correct" is defined
-  only where it can be checked against source documents. Playbooks and review
-  checklists must be validated by practising lawyers before any are presented as
-  legal standards. Recruiting a lawyer advisor is the first non-code task.
-- **Security and confidentiality** are table stakes for law firms (client
-  privilege, no training on customer data, data residency). These are designed
-  in from the first commit, not added later.
+```bash
+make test                     # backend tests against a real Postgres
+```
+
+## Documentation
+
+- **[User guide](docs/user-guide.md)**: for lawyers and legal staff
+- **[Legal framework](docs/legal/README.md)**: professional responsibility, confidentiality, limitations, playbooks
+- **[Technical documentation](docs/README.md)**: architecture, agents, guardrails, API, security, deployment, benchmarks
+
+## Status
+
+The platform runs locally and its test suite passes. The AI agents have not yet been exercised against
+the live model in this repository's history; that is the next step, followed by benchmark runs. Before
+production: SSO and MFA, rate limiting, object storage with
+encryption, and an independent security review ([details](docs/technical/security.md#before-production-not-yet-done)).
+The starter review playbooks need approval by a qualified lawyer before firms rely on them.
