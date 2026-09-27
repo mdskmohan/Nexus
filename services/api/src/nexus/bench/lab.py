@@ -23,6 +23,7 @@ from pathlib import Path
 from uuid import UUID
 
 from nexus import storage, tasks
+from nexus.ai.adapters import ModelRef
 from nexus.config import settings
 from nexus.db import row, rows, scalar, tenant
 from nexus.ingest.extract import SUPPORTED, UnsupportedFile, content_type_for
@@ -48,7 +49,7 @@ def list_tasks(lab_root: Path) -> list[str]:
     return sorted(str(p.parent.relative_to(base)) for p in base.rglob("task.json"))
 
 
-def run_task(lab_root: Path, task_id: str, max_docs: int, progress=print) -> dict:
+def run_task(lab_root: Path, task_id: str, max_docs: int, model: ModelRef, progress=print) -> dict:
     task, task_dir = load_task(lab_root, task_id)
     docs = sorted(p for p in (task_dir / "documents").rglob("*") if p.is_file())
     supported = []
@@ -94,14 +95,14 @@ def run_task(lab_root: Path, task_id: str, max_docs: int, progress=print) -> dic
             f=firm, m=matter_id, t=f"LAB {task_id}"[:200],
             i=json.dumps({"instructions": task["instructions"], "deliverables": names}),
         )
-    tasks.run_agent(firm, {"run_id": str(run_id)})
+    tasks.run_agent(firm, {"run_id": str(run_id)}, model=model)
 
     with tenant(firm) as s:
         run = row(s, "SELECT * FROM runs WHERE id = :r", r=run_id)
         files = rows(s, "SELECT filename, storage_key FROM artifacts WHERE run_id = :r", r=run_id)
         steps = rows(s, "SELECT kind, count(*) AS n FROM run_steps WHERE run_id = :r GROUP BY kind", r=run_id)
 
-    lab_run_id = f"{task_id}/nexus-{run['model'] or settings().model}/{datetime.now(UTC):%Y%m%d-%H%M%S}"
+    lab_run_id = f"{task_id}/nexus-{model.model.replace('/', '_')}/{datetime.now(UTC):%Y%m%d-%H%M%S}"
     out_dir = lab_root / "results" / lab_run_id / "output"
     out_dir.mkdir(parents=True, exist_ok=True)
     for f in files:
@@ -125,6 +126,7 @@ def run_task(lab_root: Path, task_id: str, max_docs: int, progress=print) -> dic
     }
     (out_dir.parent / "metrics.json").write_text(json.dumps(metrics, indent=2, default=str))
     (out_dir.parent / "config.json").write_text(json.dumps(
-        {"task": task_id, "agent": "nexus", "model": run["model"], "effort": settings().effort}, indent=2))
+        {"task": task_id, "agent": "nexus", "provider": model.kind, "model": model.model,
+         "effort": settings().effort}, indent=2))
     return {"task": task_id, "run_id": lab_run_id, **{k: metrics[k] for k in
             ("status", "error", "cost_usd", "duration_seconds")}, "files": [f["filename"] for f in files]}

@@ -60,8 +60,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {!me.model_configured && (
             <div className="notice notice-warn" style={{ marginBottom: 20 }}>
               <p>
-                <strong>AI is not connected yet.</strong> You can add matters and documents, but asking
-                questions and reviewing contracts need an AI key. Ask your administrator to add it.
+                <strong>AI is not connected yet.</strong> You can add matters and documents, but questions,
+                reviews and drafts need an AI model.{" "}
+                {me.user.role === "admin"
+                  ? <Link href="/settings">Connect one in Firm settings</Link>
+                  : "Ask your administrator to connect one in Firm settings."}
               </p>
             </div>
           )}

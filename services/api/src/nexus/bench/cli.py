@@ -16,8 +16,12 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+from nexus.ai.adapters import ANTHROPIC, COMPATIBLE, DEFAULT_PRICES, GOOGLE, KINDS, OPENAI, ModelRef
 from nexus.bench import lab, legalbench
-from nexus.config import REPO_ROOT
+from nexus.config import REPO_ROOT, settings
+
+KEY_ENV = {ANTHROPIC: "ANTHROPIC_API_KEY", OPENAI: "OPENAI_API_KEY", GOOGLE: "GEMINI_API_KEY",
+           COMPATIBLE: "NEXUS_BENCH_API_KEY"}
 
 RESULTS = REPO_ROOT / "var" / "bench" / "results"
 CACHE = REPO_ROOT / "var" / "bench" / "cache"
@@ -30,10 +34,30 @@ def _save(name: str, data: dict) -> Path:
     return path
 
 
+def model_ref(args) -> ModelRef:
+    """The model under test, from the command line. Keys come from the environment (or .env)."""
+    import os
+
+    from dotenv import dotenv_values
+
+    env = {**dotenv_values(REPO_ROOT / ".env"), **os.environ}
+    model = args.model or (settings().model if args.provider == ANTHROPIC else None)
+    if not model:
+        raise SystemExit(f"Give --model for provider {args.provider}.")
+    key = env.get(KEY_ENV[args.provider]) or (env.get("GOOGLE_API_KEY") if args.provider == GOOGLE else None)
+    if not key and args.provider != COMPATIBLE:
+        raise SystemExit(f"Set {KEY_ENV[args.provider]} in .env or the environment.")
+    price_in, price_out = args.price if args.price else DEFAULT_PRICES.get(model, (None, None))
+    return ModelRef(kind=args.provider, model=model, api_key=key, base_url=args.base_url, label=model,
+                    price_in=price_in, price_out=price_out, fallbacks=settings().model_fallbacks)
+
+
 def cmd_legalbench(args) -> None:
-    data = legalbench.run(args.suite, args.task or None, args.limit, CACHE / "legalbench", args.model,
-                          args.effort, workers=args.workers, max_cost=args.max_cost)
-    data.update(model=args.model, effort=args.effort)
+    ref = model_ref(args)
+    effort = args.effort or settings().effort
+    data = legalbench.run(args.suite, args.task or None, args.limit, CACHE / "legalbench", ref,
+                          effort, workers=args.workers, max_cost=args.max_cost)
+    data.update(provider=ref.kind, model=ref.model, effort=effort)
     path = _save(f"legalbench-{args.suite}", data)
     ba = data["mean_balanced_accuracy"]
     print(f"\nLegalBench ({args.suite}): {data['tasks']} tasks, {data['examples']} examples")
@@ -53,13 +77,14 @@ def cmd_lab(args) -> None:
         ids = rng.sample(pool, min(args.sample, len(pool)))
     if not ids:
         raise SystemExit("Give --task (one or more) or --sample N.")
+    ref = model_ref(args)
     results, spent = [], 0.0
     for i, task_id in enumerate(ids, 1):
         if args.max_cost is not None and spent >= args.max_cost:
             print(f"Stopping: spending limit ${args.max_cost:.2f} reached.")
             break
         print(f"[{i}/{len(ids)}] {task_id}")
-        r = lab.run_task(root, task_id, args.max_docs)
+        r = lab.run_task(root, task_id, args.max_docs, ref)
         spent += r.get("cost_usd", 0.0)
         if r.get("skipped"):
             print(f"  skipped: {r['skipped']}")
@@ -81,7 +106,8 @@ def cmd_lab(args) -> None:
                         print(f"  graded: {r['score']}")
                         break
         results.append(r)
-    path = _save("lab", {"benchmark": "harvey-lab", "tasks": results, "cost_usd": round(spent, 4)})
+    path = _save("lab", {"benchmark": "harvey-lab", "provider": ref.kind, "model": ref.model,
+                         "tasks": results, "cost_usd": round(spent, 4)})
     print(f"\nsaved: {path}")
     if not args.evaluate:
         print("Grade with LAB's own evaluator, from the LAB checkout:\n"
@@ -92,7 +118,11 @@ def cmd_lab(args) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="nexus-bench", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--model", default=None, help="Override NEXUS_MODEL for this run.")
+    parser.add_argument("--provider", choices=KINDS, default=ANTHROPIC, help="Model provider under test.")
+    parser.add_argument("--model", default=None, help="Model id (default: NEXUS_MODEL for anthropic).")
+    parser.add_argument("--base-url", default=None, help="Endpoint for openai_compatible (e.g. Ollama).")
+    parser.add_argument("--price", type=float, nargs=2, metavar=("IN", "OUT"),
+                        help="USD per million input/output tokens, for cost reporting.")
     parser.add_argument("--effort", default=None, help="Override NEXUS_EFFORT for this run.")
     parser.add_argument("--max-cost", type=float, default=None, help="Stop once this many USD are spent.")
     sub = parser.add_subparsers(required=True)

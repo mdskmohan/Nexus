@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from nexus import audit, jobs, storage
 from nexus.agents.draft import SAFE_NAME
+from nexus.ai import registry
 from nexus.api.deps import Principal, attachment, db, found, principal, require
 from nexus.config import settings
 from nexus.db import row, rows, scalar
@@ -34,11 +35,13 @@ class MatterUpdate(BaseModel):
 
 class Question(BaseModel):
     question: str = Field(min_length=3, max_length=4000)
+    model_id: str | None = None
 
 
 class DraftRequest(BaseModel):
     instructions: str = Field(min_length=10, max_length=20000)
     deliverables: list[str] = Field(default_factory=lambda: ["draft.docx"], min_length=1, max_length=6)
+    model_id: str | None = None
 
 
 class ReviewRequest(BaseModel):
@@ -46,6 +49,7 @@ class ReviewRequest(BaseModel):
     playbook_id: UUID
     client_role: str = Field(min_length=2, max_length=500)
     instructions: str = Field(default="", max_length=4000)
+    model_id: str | None = None
 
 
 # Matters ------------------------------------------------------------------
@@ -184,12 +188,19 @@ def delete_document(document_id: UUID, who: Principal = Depends(require("associa
 
 # AI tasks -----------------------------------------------------------------
 
-def _start_run(s: Session, who: Principal, matter_id: UUID, kind: str, title: str, data: dict) -> dict:
+def _start_run(s: Session, who: Principal, matter_id: UUID, kind: str, title: str, data: dict,
+               model_id: str | None) -> dict:
+    choosable = {m["id"] for m in registry.available(who.firm_id)}
+    if not choosable:
+        raise HTTPException(409, "The AI is not connected yet. Ask your administrator to add an AI model in Firm settings.")
+    if model_id and model_id not in choosable:
+        raise HTTPException(422, "That AI model is not available. Choose another.")
     run_id = scalar(
         s,
-        """INSERT INTO runs (firm_id, matter_id, kind, title, input, created_by)
-           VALUES (:f, :m, :k, :t, CAST(:i AS jsonb), :u) RETURNING id""",
+        """INSERT INTO runs (firm_id, matter_id, kind, title, input, created_by, ai_model_id)
+           VALUES (:f, :m, :k, :t, CAST(:i AS jsonb), :u, CAST(:mid AS uuid)) RETURNING id""",
         f=who.firm_id, m=matter_id, k=kind, t=title, i=json.dumps(data), u=who.user_id,
+        mid=model_id if model_id and model_id != registry.PLATFORM_ID else None,
     )
     # AI runs are not retried automatically: a retry costs money and may give a
     # different answer. The lawyer can start the task again.
@@ -209,7 +220,8 @@ def ask(matter_id: UUID, body: Question, who: Principal = Depends(principal),
     found(row(s, "SELECT id FROM matters WHERE id = :m", m=matter_id), "No such matter.")
     if not _ready_documents(s, matter_id):
         raise HTTPException(409, "Add at least one document to this matter first (and wait for it to finish processing).")
-    return _start_run(s, who, matter_id, "ask", body.question.strip()[:200], {"question": body.question.strip()})
+    return _start_run(s, who, matter_id, "ask", body.question.strip()[:200], {"question": body.question.strip()},
+                      body.model_id)
 
 
 @router.post("/matters/{matter_id}/reviews", status_code=201)
@@ -223,7 +235,8 @@ def review(matter_id: UUID, body: ReviewRequest, who: Principal = Depends(princi
                      "No such playbook.")
     data = {"document_id": str(body.document_id), "playbook_id": str(body.playbook_id),
             "client_role": body.client_role.strip(), "instructions": body.instructions.strip()}
-    return _start_run(s, who, matter_id, "review", f"Review of {doc['filename']} — {playbook['name']}", data)
+    return _start_run(s, who, matter_id, "review", f"Review of {doc['filename']} — {playbook['name']}", data,
+                      body.model_id)
 
 
 @router.post("/matters/{matter_id}/drafts", status_code=201)
@@ -240,4 +253,4 @@ def draft(matter_id: UUID, body: DraftRequest, who: Principal = Depends(principa
         raise HTTPException(422, "Each file needs a different name.")
     title = f"Draft: {', '.join(names)}"
     return _start_run(s, who, matter_id, "draft", title,
-                      {"instructions": body.instructions.strip(), "deliverables": names})
+                      {"instructions": body.instructions.strip(), "deliverables": names}, body.model_id)

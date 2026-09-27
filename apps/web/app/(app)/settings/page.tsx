@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, atLeast, type Role, ROLE_ORDER } from "@/lib/api";
 import { when } from "@/lib/format";
 import { useMe } from "@/lib/me";
+import AiModels from "@/components/settings/AiModels";
 
 type Member = { id: string; name: string; email: string; role: Role; disabled: boolean; created_at: string };
 
@@ -70,6 +71,8 @@ export default function Settings() {
           </div>
         )}
       </section>
+
+      {isAdmin && <AiModels />}
 
       <section className="stack">
         <div className="row" style={{ justifyContent: "space-between" }}>

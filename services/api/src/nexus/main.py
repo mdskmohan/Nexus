@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from nexus.api import auth, matters, work
+from nexus.api import ai, auth, matters, work
 from nexus.config import settings
 from nexus.db import engine
 
@@ -17,6 +17,7 @@ app = FastAPI(title="Nexus API", version="0.1.0", docs_url="/api/docs", openapi_
 app.include_router(auth.router)
 app.include_router(matters.router)
 app.include_router(work.router)
+app.include_router(ai.router)
 
 
 def _plain(error: dict) -> str:
@@ -49,5 +50,5 @@ async def unexpected(request: Request, exc: Exception) -> JSONResponse:
 def health() -> dict:
     with engine().connect() as conn:
         conn.execute(text("SELECT 1"))
-    return {"ok": True, "database": "up", "model": settings().model,
-            "model_key_configured": bool(settings().anthropic_api_key)}
+    return {"ok": True, "database": "up", "platform_model_key": bool(settings().anthropic_api_key),
+            "encryption_key": bool(settings().secret_key)}

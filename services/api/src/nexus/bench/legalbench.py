@@ -21,7 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from nexus import llm
+from nexus.ai.adapters import ModelRef, ModelUnavailable, complete
 
 SOURCE = "https://huggingface.co/datasets/nguha/legalbench/resolve/main"
 
@@ -114,8 +114,8 @@ def balanced_accuracy(pairs: list[tuple[str, str | None]]) -> float:
     return sum(recalls) / len(recalls) if recalls else 0.0
 
 
-def run_task(task: str, meta: dict, cache_dir: Path, limit: int | None, model: str | None,
-             effort: str | None, workers: int) -> TaskResult:
+def run_task(task: str, meta: dict, cache_dir: Path, limit: int | None, model: ModelRef,
+             effort: str, workers: int) -> TaskResult:
     rows = load_task(task, cache_dir)[: limit or None]
     spec = meta[task]
     result = TaskResult(task, spec["eval_method"], n=len(rows))
@@ -126,11 +126,10 @@ def run_task(task: str, meta: dict, cache_dir: Path, limit: int | None, model: s
     def ask(row: dict) -> tuple[dict, str, float]:
         prompt = render(spec["instruction"], row) + options
         try:
-            response, usage = llm.call(system=SYSTEM, messages=[{"role": "user", "content": prompt}],
-                                       max_tokens=4000, model=model, effort=effort)
-            text = "".join(b.text for b in response.content if b.type == "text").strip()
-            return row, text, usage.cost_usd
-        except llm.ModelUnavailable:
+            turn = complete(model, system=SYSTEM, conversation=[{"role": "user", "text": prompt}],
+                            max_tokens=4000, effort=effort)
+            return row, turn.text.strip(), turn.usage.cost_usd
+        except ModelUnavailable:
             raise
         except Exception as exc:  # one bad request should not end a benchmark run
             return row, f"__error__ {exc.__class__.__name__}", 0.0
@@ -156,8 +155,8 @@ def run_task(task: str, meta: dict, cache_dir: Path, limit: int | None, model: s
     return result
 
 
-def run(suite: str, tasks: list[str] | None, limit: int | None, cache_dir: Path, model: str | None,
-        effort: str | None, workers: int = 8, max_cost: float | None = None, progress=print) -> dict:
+def run(suite: str, tasks: list[str] | None, limit: int | None, cache_dir: Path, model: ModelRef,
+        effort: str, workers: int = 8, max_cost: float | None = None, progress=print) -> dict:
     meta = metadata(cache_dir)
     selected = tasks or sorted(t for t in meta if SUITES[suite](t))
     unknown = [t for t in selected if t not in meta]

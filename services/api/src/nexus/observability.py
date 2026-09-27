@@ -10,8 +10,8 @@ import json
 import time
 from uuid import UUID
 
+from nexus.ai.adapters import ModelRef, Usage
 from nexus.db import row, scalar, tenant
-from nexus.llm import Usage
 
 
 class RunRecorder:
@@ -34,17 +34,18 @@ class RunRecorder:
                 status=status, detail=json.dumps(detail, default=str), ms=duration_ms,
             )
 
-    def meter(self, usage: Usage, model: str) -> None:
+    def meter(self, usage: Usage, model: str, ref: ModelRef | None = None) -> None:
         self.usage.add(usage)
         with tenant(self.firm_id) as s:
             scalar(
                 s,
                 """UPDATE runs SET input_tokens = :i, output_tokens = :o,
-                          cache_read_tokens = :c, cost_usd = :cost, model = :model
+                          cache_read_tokens = :c, cost_usd = :cost, model = :model,
+                          provider = coalesce(:provider, provider)
                    WHERE id = :run RETURNING id""",
                 i=self.usage.input_tokens, o=self.usage.output_tokens,
                 c=self.usage.cache_read_tokens, cost=round(self.usage.cost_usd, 4),
-                model=model, run=self.run_id,
+                model=model, provider=ref.kind if ref else None, run=self.run_id,
             )
 
     def start(self) -> None:

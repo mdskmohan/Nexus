@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from nexus import audit
+from nexus.ai import registry
 from nexus.api.deps import COOKIE, Principal, db, principal, require
 from nexus.config import settings
 from nexus.db import row, rows, scalar, tenant, unscoped
@@ -106,7 +107,7 @@ def logout(response: Response) -> dict:
 def me(who: Principal = Depends(principal), s: Session = Depends(db)) -> dict:
     firm = row(s, "SELECT id, name, preferences FROM firms WHERE id = :f", f=who.firm_id)
     return {"user": {"id": who.user_id, "name": who.name, "email": who.email, "role": who.role},
-            "firm": firm, "model_configured": bool(settings().anthropic_api_key)}
+            "firm": firm, "model_configured": bool(registry.available(who.firm_id))}
 
 
 @router.get("/team")

@@ -58,7 +58,7 @@ def get_run(run_id: UUID, s: Session = Depends(db)) -> dict:
     run = found(row(
         s,
         f"""SELECT {_RUN_COLUMNS}, r.input, r.output, r.error, r.review_note, r.model,
-                   r.input_tokens, r.output_tokens, r.cache_read_tokens, m.name AS matter_name
+                   r.input_tokens, r.output_tokens, r.cache_read_tokens, r.provider, m.name AS matter_name
             FROM runs r JOIN matters m ON m.id = r.matter_id
             LEFT JOIN users u ON u.id = r.created_by LEFT JOIN users rv ON rv.id = r.reviewed_by
             WHERE r.id = :r""",

@@ -34,10 +34,15 @@ class Settings(BaseSettings):
     # On a policy refusal, let the API retry the request on a fallback model.
     model_fallbacks: bool = True
 
+    # Encrypts firms' AI provider keys at rest. 32 bytes, base64: openssl rand -base64 32
+    secret_key: str = ""
+
     # Guardrail limits for every agent run.
     agent_max_steps: int = 30
     agent_max_output_tokens: int = 16000
     agent_budget_usd: float = 5.00
+    # Always enforced, including for models without a price set.
+    agent_token_budget: int = 4_000_000
 
     max_upload_mb: int = 50
 

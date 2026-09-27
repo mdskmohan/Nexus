@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, type Doc, type Playbook } from "@/lib/api";
+import ModelPicker from "@/components/ModelPicker";
 
 const ROLES = [
   "We act for the disclosing party (our client shares the information)",
@@ -18,7 +19,7 @@ export default function ReviewTab({ matterId, readyDocs, onGoToDocuments }: {
 }) {
   const router = useRouter();
   const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
-  const [form, setForm] = useState({ document_id: "", playbook_id: "", client_role: ROLES[2], instructions: "" });
+  const [form, setForm] = useState({ document_id: "", playbook_id: "", client_role: ROLES[2], instructions: "", model_id: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -37,7 +38,7 @@ export default function ReviewTab({ matterId, readyDocs, onGoToDocuments }: {
     setBusy(true);
     setError("");
     try {
-      const { id } = await api.post<{ id: string }>(`/matters/${matterId}/reviews`, form);
+      const { id } = await api.post<{ id: string }>(`/matters/${matterId}/reviews`, { ...form, model_id: form.model_id || null });
       router.push(`/tasks/${id}`);
     } catch (err) {
       setError((err as Error).message);
@@ -92,6 +93,7 @@ export default function ReviewTab({ matterId, readyDocs, onGoToDocuments }: {
           Anything else the reviewer should know? <span className="hint">Optional. For example: &ldquo;Client will accept a 3-year term&rdquo;.</span>
           <textarea rows={3} value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} />
         </label>
+        <ModelPicker value={form.model_id} onChange={(id) => setForm((f) => ({ ...f, model_id: id }))} />
         {error && <div className="notice notice-bad"><p>{error}</p></div>}
         <div className="row"><button className="btn-primary" disabled={busy || !form.document_id || !form.playbook_id}>{busy ? "Starting…" : "Start review"}</button></div>
       </form>

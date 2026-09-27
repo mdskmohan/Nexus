@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, type Doc } from "@/lib/api";
+import ModelPicker from "@/components/ModelPicker";
 
 const EXAMPLES = [
   "How long do the confidentiality obligations last after the agreement ends?",
@@ -16,6 +17,7 @@ export default function AskTab({ matterId, readyDocs, onGoToDocuments }: {
 }) {
   const router = useRouter();
   const [question, setQuestion] = useState("");
+  const [modelId, setModelId] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -24,7 +26,7 @@ export default function AskTab({ matterId, readyDocs, onGoToDocuments }: {
     setBusy(true);
     setError("");
     try {
-      const { id } = await api.post<{ id: string }>(`/matters/${matterId}/ask`, { question });
+      const { id } = await api.post<{ id: string }>(`/matters/${matterId}/ask`, { question, model_id: modelId || null });
       router.push(`/tasks/${id}`);
     } catch (err) {
       setError((err as Error).message);
@@ -51,6 +53,7 @@ export default function AskTab({ matterId, readyDocs, onGoToDocuments }: {
           <textarea required minLength={3} rows={5} value={question} onChange={(e) => setQuestion(e.target.value)}
                     placeholder="e.g. Can Brightline share our information with its investors?" />
         </label>
+        <ModelPicker value={modelId} onChange={setModelId} />
         {error && <div className="notice notice-bad"><p>{error}</p></div>}
         <div className="row"><button className="btn-primary" disabled={busy || question.trim().length < 3}>{busy ? "Starting…" : "Ask"}</button></div>
         <div>

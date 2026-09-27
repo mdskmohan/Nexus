@@ -5,11 +5,13 @@ import logging
 
 from sqlalchemy import text
 
-from nexus import audit, deliverables, jobs, llm, redline, storage
+from nexus import audit, deliverables, jobs, redline, storage
 from nexus.agents.ask import AskAgent
 from nexus.agents.base import RunStopped
 from nexus.agents.draft import DraftAgent
 from nexus.agents.review import ReviewAgent
+from nexus.ai import registry
+from nexus.ai.adapters import ModelRef, ModelUnavailable
 from nexus.db import row, scalar, tenant
 from nexus.guardrails.scan import scan
 from nexus.ingest.chunk import chunk
@@ -63,7 +65,8 @@ def ingest_document(firm_id: str, payload: dict) -> None:
                      sensitive=findings.sensitive)
 
 
-def run_agent(firm_id: str, payload: dict) -> None:
+def run_agent(firm_id: str, payload: dict, model: ModelRef | None = None) -> None:
+    """`model` overrides the run's chosen model (used by the benchmark runners)."""
     run_id = payload["run_id"]
     with tenant(firm_id) as s:
         run = row(s, "SELECT * FROM runs WHERE id = :r", r=run_id)
@@ -74,6 +77,7 @@ def run_agent(firm_id: str, payload: dict) -> None:
     try:
         agent = _build_agent(firm_id, run)
         agent.recorder = recorder
+        agent.model = model or registry.resolve(firm_id, str(run["ai_model_id"]) if run["ai_model_id"] else None)
         result = agent.run()
         if run["kind"] == "review":
             result["files"] = _review_files(firm_id, run, result)
@@ -83,7 +87,7 @@ def run_agent(firm_id: str, payload: dict) -> None:
         with tenant(firm_id) as s:
             audit.record(s, firm_id, run["created_by"], "run.completed", "run", run_id,
                          kind=run["kind"], cost_usd=round(recorder.usage.cost_usd, 4))
-    except llm.ModelUnavailable as exc:
+    except ModelUnavailable as exc:
         log.error("run %s: %s", run_id, exc.technical)
         recorder.step("error", str(exc), status="error", error=exc.technical)
         recorder.fail(str(exc))

@@ -3,9 +3,11 @@
 An agent is a system prompt plus a set of tools. The loop sends the
 conversation to the model, runs the tools it asks for, and repeats until the
 agent calls its finishing tool and that call passes the guardrail checks.
+The loop is the same whichever provider's model is doing the reasoning
+(see nexus/ai/adapters.py).
 
 Guardrails enforced here, for every agent:
-  * a step limit and a spending limit per run
+  * a step limit, a token limit, and (for priced models) a spending limit per run
   * tools only ever touch the run's own matter (enforced again by the database)
   * a refusal or a truncated response ends the run with a plain explanation
   * the finishing tool can reject the agent's output (e.g. an unverifiable
@@ -19,7 +21,8 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
-from nexus import llm
+from nexus.ai import registry
+from nexus.ai.adapters import ModelRef, ToolCall, ToolResult, ToolSpec, complete
 from nexus.config import settings
 from nexus.db import tenant
 from nexus.observability import RunRecorder, Timer
@@ -57,13 +60,8 @@ class Tool:
     schema: dict
     handler: Callable[[dict], ToolOutcome]
 
-    def definition(self) -> dict:
-        return {
-            "name": self.name,
-            "description": self.description,
-            "input_schema": {**self.schema, "additionalProperties": False},
-            "strict": True,
-        }
+    def spec(self) -> ToolSpec:
+        return ToolSpec(self.name, self.description, {**self.schema, "additionalProperties": False})
 
 
 def valid_uuid(value: Any, what: str) -> str:
@@ -77,10 +75,12 @@ class Agent:
     max_finish_attempts = 3
     max_steps: int | None = None  # defaults to NEXUS_AGENT_MAX_STEPS
 
-    def __init__(self, firm_id: UUID | str, matter_id: UUID | str, run_id: UUID | str):
+    def __init__(self, firm_id: UUID | str, matter_id: UUID | str, run_id: UUID | str,
+                 model: ModelRef | None = None):
         self.firm_id = str(firm_id)
         self.matter_id = str(matter_id)
         self.run_id = str(run_id)
+        self.model = model
         self.recorder = RunRecorder(firm_id, run_id)
         self.result: dict | None = None
         self.finish_attempts = 0
@@ -96,45 +96,46 @@ class Agent:
 
     def run(self) -> dict:
         cfg = settings()
+        model = self.model or registry.resolve(self.firm_id)
         tools = {t.name: t for t in self.tools()}
-        definitions = [t.definition() for t in tools.values()]
+        specs = [t.spec() for t in tools.values()]
         system = self.system_prompt()
-        messages: list = [{"role": "user", "content": self.first_message()}]
+        conversation: list = [{"role": "user", "text": self.first_message()}]
         nudged = False
 
         max_steps = self.max_steps or cfg.agent_max_steps
         for _ in range(max_steps):
             with Timer() as t:
-                response, usage = llm.call(system=system, messages=messages, tools=definitions)
-            self.recorder.meter(usage, response.model)
-            if llm.served_by_fallback(response):
-                self.recorder.step("model", f"Answered by the backup model ({response.model}).",
+                turn = complete(model, system=system, conversation=conversation, tools=specs,
+                                max_tokens=cfg.agent_max_output_tokens, effort=cfg.effort)
+            self.recorder.meter(turn.usage, turn.model, model)
+            if turn.fallback:
+                self.recorder.step("model", f"Answered by the backup model ({turn.model}).",
                                    status="warning", duration_ms=t.ms)
-            if response.stop_reason == "refusal":
-                raise RunStopped("The AI declined this request. Try rephrasing it, or contact support.")
-            if self.recorder.usage.cost_usd > cfg.agent_budget_usd:
+            if turn.stop == "refusal":
+                raise RunStopped("The AI declined this request. Try rephrasing it, or choose another model.")
+            used = self.recorder.usage
+            if model.priced and used.cost_usd > cfg.agent_budget_usd:
                 raise RunStopped(
                     f"Stopped at the spending limit for one task (${cfg.agent_budget_usd:.2f}). "
                     "Try a narrower request, or ask an admin to raise the limit."
                 )
+            if used.total_tokens > cfg.agent_token_budget:
+                raise RunStopped("Stopped at the size limit for one task. Try a narrower request.")
 
-            messages.append({"role": "assistant", "content": llm.echo_content(response)})
-            calls = [b for b in response.content if b.type == "tool_use"]
-
-            if not calls:
-                if response.stop_reason == "max_tokens":
+            conversation.append({"role": "assistant", "turn": turn})
+            if not turn.tool_calls:
+                if turn.stop == "max_tokens":
                     raise RunStopped("The response was too long to finish. Try a narrower request.")
                 if nudged:
-                    raise RunStopped("The AI stopped without producing a result. Please try again.")
+                    raise RunStopped("The AI stopped without producing a result. Please try again, "
+                                     "or choose a more capable model.")
                 nudged = True
-                messages.append({"role": "user", "content":
-                                 f"Finish by calling the {self.finish_tool} tool."})
+                conversation.append({"role": "user", "text": f"Finish by calling the {self.finish_tool} tool."})
                 continue
 
-            results = []
-            for call in calls:
-                results.append(self._execute(tools, call))
-            messages.append({"role": "user", "content": results})
+            conversation.append({"role": "tool_results",
+                                 "results": [self._execute(tools, call) for call in turn.tool_calls]})
             if self.result is not None:
                 return self.result
 
@@ -142,19 +143,19 @@ class Agent:
             f"Stopped after {max_steps} steps without finishing. Try a narrower request."
         )
 
-    def _execute(self, tools: dict[str, Tool], call) -> dict:
+    def _execute(self, tools: dict[str, Tool], call: ToolCall) -> ToolResult:
         tool = tools.get(call.name)
         is_finish = call.name == self.finish_tool
         try:
             if tool is None:
-                raise ToolError(f"There is no tool named {call.name}.")
+                raise ToolError(f"There is no tool named {call.name}. Use one of: {', '.join(tools)}.")
             if not isinstance(call.input, dict):
-                raise ToolError("The tool input was not a JSON object.")
+                raise ToolError("The tool arguments were not valid JSON. Send a JSON object.")
             with Timer() as t:
                 outcome = tool.handler(call.input)
             self.recorder.step(outcome.kind, outcome.title, status=outcome.status,
                                duration_ms=t.ms, tool=call.name, input=call.input, **outcome.detail)
-            return {"type": "tool_result", "tool_use_id": call.id, "content": outcome.content}
+            return ToolResult(call.id, call.name, outcome.content)
         except ToolError as exc:
             if is_finish:
                 self.finish_attempts += 1
@@ -167,8 +168,7 @@ class Agent:
                      else f"A step needed retrying: {exc}")
             self.recorder.step("check" if is_finish else "tool", title, status="warning",
                                tool=call.name, input=call.input, error=str(exc))
-            return {"type": "tool_result", "tool_use_id": call.id, "content": str(exc),
-                    "is_error": True}
+            return ToolResult(call.id, call.name, str(exc), is_error=True)
 
 
 def location(p: dict) -> str:

@@ -8,7 +8,7 @@ from nexus import jobs, search
 from nexus.db import row, rows, tenant
 from nexus.samples import INJECTION_EMAIL, sample_nda_docx
 from nexus.tasks import HANDLERS
-from tests.conftest import signup
+from tests.conftest import add_local_model, signup
 
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -143,6 +143,9 @@ def test_ask_needs_documents_and_queues_a_run(client):
     assert client.post(f"/api/matters/{empty['id']}/ask", json={"question": "Anything?"}).status_code == 409
 
     matter_id, _ = _matter_with_nda(client)
+    no_model = client.post(f"/api/matters/{matter_id}/ask", json={"question": "How long does confidentiality last?"})
+    assert no_model.status_code == 409 and "not connected" in no_model.json()["detail"]
+    add_local_model(client)
     run = client.post(f"/api/matters/{matter_id}/ask", json={"question": "How long does confidentiality last?"})
     assert run.status_code == 201
     detail = client.get(f"/api/runs/{run.json()['id']}").json()
@@ -154,6 +157,7 @@ def test_roles_limit_who_can_approve_and_edit(client):
     client.post("/api/team", json={"name": "Para", "email": "para@madiraju.example", "role": "paralegal",
                                    "temporary_password": "temporary password"})
     matter_id, nda_id = _matter_with_nda(client)
+    add_local_model(client)
     playbook = client.get("/api/playbooks").json()[0]
     run = client.post(f"/api/matters/{matter_id}/reviews", json={
         "document_id": nda_id, "playbook_id": playbook["id"], "client_role": "Mutual; we are Acme"}).json()

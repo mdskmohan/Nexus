@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, type Doc } from "@/lib/api";
+import ModelPicker from "@/components/ModelPicker";
 
 const TEMPLATES = [
   {
@@ -28,6 +29,7 @@ export default function DraftTab({ matterId, readyDocs, onGoToDocuments }: {
   const router = useRouter();
   const [instructions, setInstructions] = useState("");
   const [file, setFile] = useState("draft.docx");
+  const [modelId, setModelId] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -36,7 +38,7 @@ export default function DraftTab({ matterId, readyDocs, onGoToDocuments }: {
     setBusy(true);
     setError("");
     try {
-      const { id } = await api.post<{ id: string }>(`/matters/${matterId}/drafts`, { instructions, deliverables: [file] });
+      const { id } = await api.post<{ id: string }>(`/matters/${matterId}/drafts`, { instructions, deliverables: [file], model_id: modelId || null });
       router.push(`/tasks/${id}`);
     } catch (err) {
       setError((err as Error).message);
@@ -71,6 +73,7 @@ export default function DraftTab({ matterId, readyDocs, onGoToDocuments }: {
           File name <span className="hint">Ends in .docx (Word), .xlsx (Excel) or .md</span>
           <input required value={file} onChange={(e) => setFile(e.target.value)} />
         </label>
+        <ModelPicker value={modelId} onChange={setModelId} />
         {error && <div className="notice notice-bad"><p>{error}</p></div>}
         <div className="row"><button className="btn-primary" disabled={busy || instructions.trim().length < 10}>{busy ? "Starting…" : "Start drafting"}</button></div>
       </form>
