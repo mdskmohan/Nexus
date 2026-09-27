@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from nexus import audit, storage
+from nexus.api.auth import seed_playbooks
 from nexus.api.deps import Principal, attachment, db, found, principal, require
 from nexus.config import settings
 from nexus.db import row, rows, scalar
@@ -125,10 +126,11 @@ def download_file(file_id: UUID, who: Principal = Depends(principal), s: Session
 # Playbooks ----------------------------------------------------------------
 
 @router.get("/playbooks")
-def list_playbooks(s: Session = Depends(db)) -> list[dict]:
+def list_playbooks(who: Principal = Depends(principal), s: Session = Depends(db)) -> list[dict]:
+    seed_playbooks(s, who.firm_id)  # new starters reach existing firms; existing ones are never overwritten
     return rows(s, """SELECT id, slug, name, description, document_type, is_starter, validated_by,
                              validated_at, jsonb_array_length(positions) AS position_count, updated_at
-                      FROM playbooks ORDER BY name""")
+                      FROM playbooks ORDER BY is_starter, slug LIKE '%-india' DESC, name""")
 
 
 @router.get("/playbooks/{playbook_id}")

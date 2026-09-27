@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from nexus.ai.adapters import ANTHROPIC, COMPATIBLE, DEFAULT_PRICES, GOOGLE, KINDS, OPENAI, ModelRef
-from nexus.bench import lab, legalbench
+from nexus.bench import india_review, lab, legalbench
 from nexus.config import REPO_ROOT, settings
 
 KEY_ENV = {ANTHROPIC: "ANTHROPIC_API_KEY", OPENAI: "OPENAI_API_KEY", GOOGLE: "GEMINI_API_KEY",
@@ -115,6 +115,19 @@ def cmd_lab(args) -> None:
               "[--judges claude-opus-4-8]")
 
 
+def cmd_india(args) -> None:
+    ref = model_ref(args)
+    print(f"Nexus India contract review: {len(india_review.CASES)} contracts on {ref.model}")
+    data = india_review.run(ref)
+    data.update(provider=ref.kind, model=ref.model)
+    path = _save("india-review", data)
+    recall = data["issue_recall"]
+    print(f"\n  issue recall: {recall:.0%}" if recall is not None else "\n  no review completed")
+    print(f"  false alarms: {data['false_alarms']}\n  citations verified: {data['citations_verified']}")
+    print(f"  cost: ${data['cost_usd']:.2f}\n  saved: {path}")
+    print("  (answer keys not yet validated by a practising lawyer)")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="nexus-bench", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -144,6 +157,9 @@ def main() -> None:
     lb2.add_argument("--evaluate", action="store_true", help="Grade each run with LAB's evaluator.")
     lb2.add_argument("--judges", nargs="+", help="LAB judge models (default claude-opus-4-8).")
     lb2.set_defaults(func=cmd_lab)
+
+    ind = sub.add_parser("india-review", help="Nexus India contract-review benchmark (planted issues)")
+    ind.set_defaults(func=cmd_india)
 
     args = parser.parse_args()
     args.func(args)

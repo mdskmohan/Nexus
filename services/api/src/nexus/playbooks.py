@@ -282,4 +282,7 @@ COMMERCIAL = {
     ],
 }
 
-STARTERS = [NDA, COMMERCIAL]
+from nexus.playbooks_india import INDIA  # noqa: E402
+
+# Indian-law playbooks first: Nexus serves Indian firms first.
+STARTERS = [*INDIA, NDA, COMMERCIAL]

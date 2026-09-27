@@ -28,7 +28,7 @@ def test_signup_seeds_starter_playbooks_and_audit(client):
     me = client.get("/api/me").json()
     assert me["user"]["role"] == "admin"
     playbooks = client.get("/api/playbooks").json()
-    assert {p["slug"] for p in playbooks} == {"nda", "commercial"}
+    assert {p["slug"] for p in playbooks} == {"nda-india", "services-india", "employment-india", "nda", "commercial"}
     assert all(p["is_starter"] and p["validated_by"] is None for p in playbooks)
 
 

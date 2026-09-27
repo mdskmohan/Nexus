@@ -53,11 +53,13 @@ def _set_session(response: Response, user_id, firm_id, role: str) -> None:
 
 
 def seed_playbooks(session: Session, firm_id: str) -> None:
+    """Give the firm any starter playbook it does not have yet (by slug). Idempotent."""
     for p in STARTERS:
         scalar(
             session,
             """INSERT INTO playbooks (firm_id, slug, name, description, document_type, positions, is_starter)
-               VALUES (:f, :slug, :name, :desc, :dt, CAST(:pos AS jsonb), true) RETURNING id""",
+               VALUES (:f, :slug, :name, :desc, :dt, CAST(:pos AS jsonb), true)
+               ON CONFLICT (firm_id, slug) DO NOTHING RETURNING id""",
             f=firm_id, slug=p["slug"], name=p["name"], desc=p["description"],
             dt=p["document_type"], pos=json.dumps(p["positions"]),
         )

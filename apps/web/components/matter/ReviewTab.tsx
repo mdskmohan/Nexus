@@ -11,7 +11,9 @@ const ROLES = [
   "We act for the receiving party (our client receives the information)",
   "Mutual: our client both shares and receives information",
   "We act for the customer",
-  "We act for the supplier",
+  "We act for the supplier / service provider",
+  "We act for the employer",
+  "We act for the employee",
 ];
 
 export default function ReviewTab({ matterId, readyDocs, onGoToDocuments }: {
