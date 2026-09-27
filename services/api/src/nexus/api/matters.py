@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
@@ -41,6 +42,26 @@ class Question(BaseModel):
 class DraftRequest(BaseModel):
     instructions: str = Field(min_length=10, max_length=20000)
     deliverables: list[str] = Field(default_factory=lambda: ["draft.docx"], min_length=1, max_length=6)
+    model_id: str | None = None
+
+
+class ChequeNoticeRequest(BaseModel):
+    payee_name: str = Field(min_length=2, max_length=300)
+    payee_address: str = Field(min_length=5, max_length=1000)
+    drawer_name: str = Field(min_length=2, max_length=300)
+    drawer_address: str = Field(min_length=5, max_length=1000)
+    cheque_number: str = Field(min_length=3, max_length=20, pattern=r"^[0-9A-Za-z-]+$")
+    cheque_date: date
+    amount: int = Field(gt=0, lt=10_000_000_000)
+    bank: str = Field(min_length=3, max_length=300)
+    presented_on: date
+    information_received_on: date
+    reason: str = Field(min_length=3, max_length=200)
+    liability: str = Field(min_length=10, max_length=4000)
+    advocate_name: str = Field(min_length=2, max_length=200)
+    advocate_address: str = Field(min_length=5, max_length=1000)
+    enrolment_number: str = Field(default="", max_length=50)
+    dispatch: str = Field(default="Registered Post with Acknowledgement Due and Speed Post", max_length=200)
     model_id: str | None = None
 
 
@@ -254,3 +275,33 @@ def draft(matter_id: UUID, body: DraftRequest, who: Principal = Depends(principa
     title = f"Draft: {', '.join(names)}"
     return _start_run(s, who, matter_id, "draft", title,
                       {"instructions": body.instructions.strip(), "deliverables": names}, body.model_id)
+
+
+@router.post("/matters/{matter_id}/notices/cheque", status_code=201)
+def cheque_notice(matter_id: UUID, body: ChequeNoticeRequest, who: Principal = Depends(principal),
+                  s: Session = Depends(db)) -> dict:
+    found(row(s, "SELECT id FROM matters WHERE id = :m", m=matter_id), "No such matter.")
+    if not (body.cheque_date <= body.presented_on <= body.information_received_on):
+        raise HTTPException(422, "Check the dates: the cheque date, presentation and the bank's information of "
+                                 "dishonour must be in that order.")
+    facts = body.model_dump(exclude={"model_id"}, mode="json")
+    title = f"Notice u/s 138 to {body.drawer_name} (cheque {body.cheque_number})"
+    return _start_run(s, who, matter_id, "notice", title[:200], {"facts": facts}, body.model_id)
+
+
+@router.post("/notices/cheque/timeline")
+def cheque_timeline(body: dict, who: Principal = Depends(principal)) -> dict:
+    """The statutory timeline alone, computed as the lawyer types (no AI involved)."""
+    from nexus.india.cheque import rupees, rupees_in_words, timeline
+
+    try:
+        t = timeline(date.fromisoformat(body["cheque_date"]), date.fromisoformat(body["presented_on"]),
+                     date.fromisoformat(body["information_received_on"]))
+    except (KeyError, ValueError, TypeError):
+        raise HTTPException(422, "Enter the cheque date, presentation date and the date you learned of the dishonour.") from None
+    amount = body.get("amount")
+    words = {}
+    if isinstance(amount, int) and 0 < amount < 10_000_000_000:
+        words = {"amount_figures": rupees(amount), "amount_words": rupees_in_words(amount)}
+    return {"cheque_valid_until": t.cheque_valid_until.isoformat(), "notice_last_day": t.notice_last_day.isoformat(),
+            "checks": [c.__dict__ for c in t.checks], **words}

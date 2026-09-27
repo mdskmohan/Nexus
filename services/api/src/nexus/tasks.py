@@ -9,6 +9,7 @@ from nexus import audit, deliverables, jobs, redline, storage
 from nexus.agents.ask import AskAgent
 from nexus.agents.base import RunCancelled, RunStopped
 from nexus.agents.draft import DraftAgent
+from nexus.agents.notice import NoticeAgent
 from nexus.agents.review import ReviewAgent
 from nexus.ai import registry
 from nexus.ai.adapters import ModelRef, ModelUnavailable
@@ -90,7 +91,7 @@ def run_agent(firm_id: str, payload: dict, model: ModelRef | None = None) -> Non
         result = agent.run()
         if run["kind"] == "review":
             result["files"] = _review_files(firm_id, run, result)
-        elif run["kind"] == "draft":
+        elif run["kind"] in ("draft", "notice"):
             result["files"] = _draft_files(firm_id, run, result)
         recorder.finish(result, agent.guardrail_summary())
         with tenant(firm_id) as s:
@@ -119,6 +120,8 @@ def _build_agent(firm_id: str, run: dict):
         return AskAgent(firm_id, run["matter_id"], run["id"], data["question"])
     if run["kind"] == "draft":
         return DraftAgent(firm_id, run["matter_id"], run["id"], data["instructions"], data["deliverables"])
+    if run["kind"] == "notice":
+        return NoticeAgent(firm_id, run["matter_id"], run["id"], data["facts"])
     if run["kind"] == "review":
         with tenant(firm_id) as s:
             playbook = row(s, "SELECT * FROM playbooks WHERE id = :p", p=data["playbook_id"])
