@@ -21,7 +21,9 @@ PRESETS = [
     {"kind": GOOGLE, "label": "Google (Gemini)", "base_url": None, "needs_key": True,
      "hint": "Create a key at aistudio.google.com."},
     {"kind": COMPATIBLE, "label": "Ollama (on this server)", "base_url": "http://localhost:11434/v1",
-     "needs_key": False, "hint": "Runs models on your own machine. Nothing leaves your network."},
+     "needs_key": False, "hint": "Runs models on your own machine; nothing leaves your network. Reviews and "
+     "drafts need a context window of at least 16,000 tokens (Ollama's default is 4,096): set "
+     "OLLAMA_CONTEXT_LENGTH, or use a model created with a larger num_ctx."},
     {"kind": COMPATIBLE, "label": "OpenRouter", "base_url": "https://openrouter.ai/api/v1", "needs_key": True,
      "hint": "One key for many providers' models."},
     {"kind": COMPATIBLE, "label": "Other OpenAI-compatible endpoint", "base_url": "", "needs_key": True,

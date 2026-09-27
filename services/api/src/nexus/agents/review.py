@@ -105,6 +105,13 @@ class ReviewAgent(Agent):
             f"Playbook positions:\n\n{positions}"
         )
 
+    def nudge(self) -> str:
+        missing = [p for p in self.positions if p not in self.findings]
+        if missing:
+            return (f"Findings are still missing for: {', '.join(missing)}. Call record_finding for each "
+                    "(one call per position), then call finish_review.")
+        return "Every position has a finding. Call finish_review with the summary and the client note."
+
     def tools(self) -> list[Tool]:
         return [
             *[t for t in matter_tools(self, only_document=self.document_id) if t.name != "list_documents"],

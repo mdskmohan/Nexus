@@ -7,18 +7,20 @@ from sqlalchemy import text
 
 from nexus import audit, deliverables, jobs, redline, storage
 from nexus.agents.ask import AskAgent
-from nexus.agents.base import RunStopped
+from nexus.agents.base import RunCancelled, RunStopped
 from nexus.agents.draft import DraftAgent
 from nexus.agents.review import ReviewAgent
 from nexus.ai import registry
 from nexus.ai.adapters import ModelRef, ModelUnavailable
-from nexus.db import row, scalar, tenant
+from nexus.db import row, rows, scalar, tenant, unscoped
 from nexus.guardrails.scan import scan
 from nexus.ingest.chunk import chunk
 from nexus.ingest.extract import DOCX, UnreadableFile, UnsupportedFile, extract
 from nexus.observability import RunRecorder
 
 log = logging.getLogger("nexus.tasks")
+
+INTERRUPTED = "This task was interrupted before it finished (the server restarted). Please start it again."
 
 
 def ingest_document(firm_id: str, payload: dict) -> None:
@@ -70,7 +72,14 @@ def run_agent(firm_id: str, payload: dict, model: ModelRef | None = None) -> Non
     run_id = payload["run_id"]
     with tenant(firm_id) as s:
         run = row(s, "SELECT * FROM runs WHERE id = :r", r=run_id)
-    if run is None or run["status"] != "queued":
+    if run is None:
+        return
+    if run["status"] == "running":
+        # A worker picked this task up before and died mid-way. Paid AI work is not
+        # silently repeated: tell the lawyer, who can start it again.
+        RunRecorder(firm_id, run_id).fail(INTERRUPTED)
+        return
+    if run["status"] != "queued":
         return
     recorder = RunRecorder(firm_id, run_id)
     recorder.start()
@@ -87,6 +96,8 @@ def run_agent(firm_id: str, payload: dict, model: ModelRef | None = None) -> Non
         with tenant(firm_id) as s:
             audit.record(s, firm_id, run["created_by"], "run.completed", "run", run_id,
                          kind=run["kind"], cost_usd=round(recorder.usage.cost_usd, 4))
+    except RunCancelled:
+        recorder.step("error", "Stopped at your request.", status="warning")
     except ModelUnavailable as exc:
         log.error("run %s: %s", run_id, exc.technical)
         recorder.step("error", str(exc), status="error", error=exc.technical)
@@ -164,8 +175,25 @@ def _review_files(firm_id: str, run: dict, result: dict) -> list[dict]:
 HANDLERS = {"ingest_document": ingest_document, "run_agent": run_agent}
 
 
+def close_orphaned_runs() -> int:
+    """Tasks left 'running' although their job is no longer being worked on."""
+    with unscoped() as s:
+        finished = rows(s, """SELECT DISTINCT firm_id, payload->>'run_id' AS run_id FROM jobs
+                              WHERE kind = 'run_agent' AND status IN ('done', 'failed')
+                                AND created_at > now() - interval '7 days'""")
+    closed = 0
+    for j in finished:
+        with tenant(j["firm_id"]) as s:
+            stuck = scalar(s, "SELECT 1 FROM runs WHERE id = CAST(:r AS uuid) AND status = 'running'", r=j["run_id"])
+        if stuck:
+            RunRecorder(str(j["firm_id"]), j["run_id"]).fail(INTERRUPTED)
+            closed += 1
+    return closed
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
-    log.info("worker started")
+    closed = close_orphaned_runs()
+    log.info("worker started%s", f"; closed {closed} interrupted task(s)" if closed else "")
     jobs.work(HANDLERS)
 

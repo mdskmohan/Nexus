@@ -15,7 +15,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from nexus.db import row, scalar, unscoped
+from nexus.db import row, rows, scalar, unscoped
 
 log = logging.getLogger("nexus.jobs")
 STALE_AFTER_MINUTES = 30
@@ -33,8 +33,29 @@ def enqueue(session: Session, firm_id: UUID | str, kind: str, payload: dict,
     )
 
 
+def _dead_local_workers(s) -> list[str]:
+    """Lock owners on this host whose process no longer exists."""
+    host = socket.gethostname()
+    owners = [r["locked_by"] for r in rows(s, "SELECT DISTINCT locked_by FROM jobs WHERE status = 'running'")]
+    dead = []
+    for owner in owners:
+        name, _, pid = (owner or "").rpartition(":")
+        if name == host and pid.isdigit():
+            try:
+                os.kill(int(pid), 0)
+            except ProcessLookupError:
+                dead.append(owner)
+            except PermissionError:
+                pass
+    return dead
+
+
 def claim(worker: str) -> dict | None:
     with unscoped() as s:
+        dead = _dead_local_workers(s)
+        if dead:
+            scalar(s, """UPDATE jobs SET status = 'queued', locked_at = NULL, locked_by = NULL
+                         WHERE status = 'running' AND locked_by = ANY(:dead) RETURNING 1""", dead=dead)
         scalar(s, f"""UPDATE jobs SET status = 'queued', locked_at = NULL, locked_by = NULL
                       WHERE status = 'running'
                         AND locked_at < now() - interval '{STALE_AFTER_MINUTES} minutes'

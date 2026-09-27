@@ -55,6 +55,11 @@ class AskAgent(Agent):
     def first_message(self) -> str:
         return f"Question from the lawyer:\n{self.question}"
 
+    def nudge(self) -> str:
+        return ("Your reply was not saved as an answer. Call submit_answer with each statement and its "
+                "citations (passage_id and exact quote), or explain in could_not_answer what the documents "
+                "do not cover.")
+
     def tools(self) -> list[Tool]:
         return [*matter_tools(self), Tool(
             "submit_answer",

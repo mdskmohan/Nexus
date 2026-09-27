@@ -76,6 +76,14 @@ class DraftAgent(Agent):
         return (f"Task from the supervising lawyer:\n{self.instructions}\n\n"
                 f"Deliverables to write: {', '.join(self.names)}")
 
+    def nudge(self) -> str:
+        missing = [n for n in self.names if n not in self.files]
+        if missing:
+            return (f"Nothing has been saved yet for: {', '.join(missing)}. Writing text in your reply does not "
+                    f"save a file. Call write_deliverable with filename \"{missing[0]}\", the full content in "
+                    "Markdown, and its sources. Then call finish.")
+        return "All deliverables are written. Call finish with a short summary."
+
     def tools(self) -> list[Tool]:
         return [
             *matter_tools(self),

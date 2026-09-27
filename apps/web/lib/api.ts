@@ -80,7 +80,7 @@ export type Finding = {
   risk: "high" | "medium" | "low"; explanation: string; suggested_language: string; citation: Citation | null;
 };
 
-export type RunStatus = "queued" | "running" | "needs_review" | "approved" | "rejected" | "failed";
+export type RunStatus = "queued" | "running" | "needs_review" | "approved" | "rejected" | "failed" | "cancelled";
 
 export type Step = {
   seq: number; kind: string; title: string; status: "ok" | "warning" | "blocked" | "error";

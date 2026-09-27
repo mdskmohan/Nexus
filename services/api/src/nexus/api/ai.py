@@ -153,7 +153,7 @@ def provider_models(provider_id: UUID, who: Principal = Depends(require("admin")
     try:
         return catalog.list_models(ref)
     except ModelUnavailable as exc:
-        raise HTTPException(502, str(exc)) from exc
+        raise HTTPException(502, exc.admin) from exc
 
 
 @router.post("/providers/{provider_id}/test")
@@ -165,7 +165,7 @@ def test_provider(provider_id: UUID, who: Principal = Depends(require("admin")),
         reply = catalog.test(ref)
         ok, message = True, f"Connected. {ref.model} replied: “{reply}”"
     except ModelUnavailable as exc:
-        ok, message = False, str(exc)
+        ok, message = False, exc.admin
     except Exception as exc:  # any other provider error is reported, not raised
         ok, message = False, f"The provider returned an error: {exc.__class__.__name__}."
     scalar(s, """UPDATE ai_providers SET last_test_ok = :ok, last_test_at = now(), last_test_msg = :m

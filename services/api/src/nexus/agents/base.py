@@ -44,6 +44,10 @@ class RunStopped(Exception):
     """The run cannot continue; the message is shown to the lawyer."""
 
 
+class RunCancelled(Exception):
+    """Someone stopped the task."""
+
+
 @dataclass
 class ToolOutcome:
     content: str
@@ -73,6 +77,7 @@ def valid_uuid(value: Any, what: str) -> str:
 class Agent:
     finish_tool: str = ""
     max_finish_attempts = 3
+    max_nudges = 2
     max_steps: int | None = None  # defaults to NEXUS_AGENT_MAX_STEPS
 
     def __init__(self, firm_id: UUID | str, matter_id: UUID | str, run_id: UUID | str,
@@ -91,6 +96,10 @@ class Agent:
     def tools(self) -> list[Tool]: ...
     def guardrail_summary(self) -> dict: ...
 
+    def nudge(self) -> str:
+        """What to tell the model when it stops without calling a tool. Agents can be more specific."""
+        return f"You have not finished. Continue using the tools, and finish by calling {self.finish_tool}."
+
     def session(self):
         return tenant(self.firm_id)
 
@@ -101,10 +110,12 @@ class Agent:
         specs = [t.spec() for t in tools.values()]
         system = self.system_prompt()
         conversation: list = [{"role": "user", "text": self.first_message()}]
-        nudged = False
+        nudges = 0
 
         max_steps = self.max_steps or cfg.agent_max_steps
         for _ in range(max_steps):
+            if self.recorder.cancelled():
+                raise RunCancelled
             with Timer() as t:
                 turn = complete(model, system=system, conversation=conversation, tools=specs,
                                 max_tokens=cfg.agent_max_output_tokens, effort=cfg.effort)
@@ -127,11 +138,13 @@ class Agent:
             if not turn.tool_calls:
                 if turn.stop == "max_tokens":
                     raise RunStopped("The response was too long to finish. Try a narrower request.")
-                if nudged:
+                if nudges >= self.max_nudges:
                     raise RunStopped("The AI stopped without producing a result. Please try again, "
                                      "or choose a more capable model.")
-                nudged = True
-                conversation.append({"role": "user", "text": f"Finish by calling the {self.finish_tool} tool."})
+                nudges += 1
+                self.recorder.step("check", "The AI paused before finishing and was asked to continue.",
+                                   status="warning", said=turn.text[:500])
+                conversation.append({"role": "user", "text": self.nudge()})
                 continue
 
             conversation.append({"role": "tool_results",

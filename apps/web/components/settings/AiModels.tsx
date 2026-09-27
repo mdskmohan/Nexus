@@ -135,8 +135,8 @@ function ProviderCard({ p, onChange }: { p: Provider; onChange: () => void }) {
                    onChange={(e) => setNewModel({ ...newModel, model: e.target.value })} />
             <datalist id={`models-${p.id}`}>{(available ?? []).map((m) => <option key={m} value={m} />)}</datalist>
           </label>
-          <label className="grow">Display name <span className="hint">Optional</span>
-            <input value={newModel.label} onChange={(e) => setNewModel({ ...newModel, label: e.target.value })} />
+          <label className="grow">Display name
+            <input placeholder="Optional, e.g. Claude for reviews" value={newModel.label} onChange={(e) => setNewModel({ ...newModel, label: e.target.value })} />
           </label>
           <button className="btn-primary">Add model</button>
         </form>

@@ -31,6 +31,12 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
     return () => clearInterval(t);
   }, [live, load]);
 
+  async function stop() {
+    if (!confirm("Stop this task? What the AI has done so far is kept in the activity record.")) return;
+    await api.post(`/runs/${id}/cancel`);
+    await load();
+  }
+
   async function decide(action: "approve" | "reject") {
     setBusy(true);
     try {
@@ -66,7 +72,10 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
       </div>
 
       {run.status === "failed" && (
-        <div className="notice notice-bad" style={{ marginBottom: 20 }}><p><strong>This task stopped.</strong> {run.error}</p></div>
+        <div className="notice notice-bad" style={{ marginBottom: 20 }}><p><strong>This task did not finish.</strong> {run.error}</p></div>
+      )}
+      {run.status === "cancelled" && (
+        <div className="notice notice-info" style={{ marginBottom: 20 }}><p>{run.error}</p></div>
       )}
       {run.status === "approved" && (
         <div className="notice notice-ok" style={{ marginBottom: 20 }}>
@@ -82,7 +91,10 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
       <div className="grid-2">
         <div className="stack">
           {live && (
-            <div className="card card-pad"><p className="muted">The AI is working. You can leave this page; the result will be in the matter&apos;s history.</p></div>
+            <div className="card card-pad row" style={{ justifyContent: "space-between" }}>
+              <p className="muted">The AI is working. You can leave this page; the result will be in the matter&apos;s history.</p>
+              <button className="btn-small" onClick={stop}>Stop task</button>
+            </div>
           )}
           {run.output && run.kind === "ask" && <AskResult output={run.output} />}
           {run.output && run.kind === "review" && <ReviewResult output={run.output} files={run.files ?? []} />}

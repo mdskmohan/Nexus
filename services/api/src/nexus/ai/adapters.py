@@ -45,9 +45,11 @@ class ModelUnavailable(RuntimeError):
     `str(exc)` is shown to lawyers; `technical` is for logs and the step detail.
     """
 
-    def __init__(self, message: str, technical: str):
+    def __init__(self, message: str, technical: str, admin: str | None = None):
         super().__init__(message)
         self.technical = technical
+        # What to tell the administrator who is setting the provider up.
+        self.admin = admin or message
 
 
 @dataclass
@@ -135,12 +137,16 @@ def _unavailable(ref: ModelRef, exc: Exception, status: int | None) -> ModelUnav
     who = ref.label or ref.kind
     if status in (401, 403):
         return ModelUnavailable(f"{who} rejected the API key. Ask your administrator to check it in Firm settings.",
-                                f"{ref.kind} {status}: {exc}")
+                                f"{ref.kind} {status}: {exc}",
+                                f"{who} rejected this API key. Check that it was copied in full and is active, "
+                                "then save it again.")
     if status == 404:
         return ModelUnavailable(f"The model '{ref.model}' is not available from {who}. Ask your administrator to check it.",
-                                f"{ref.kind} 404 for {ref.model}: {exc}")
+                                f"{ref.kind} 404 for {ref.model}: {exc}",
+                                f"{who} does not offer '{ref.model}' to this key. Pick a model from the list.")
     return ModelUnavailable(f"Could not reach {who}. Try again shortly; if it keeps happening, ask your administrator.",
-                            f"{ref.kind} unreachable: {exc}")
+                            f"{ref.kind} unreachable: {exc}",
+                            f"Could not reach {who}. Check the endpoint address and that the service is running.")
 
 
 # Anthropic ---------------------------------------------------------------

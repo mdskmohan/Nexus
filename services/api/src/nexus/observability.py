@@ -48,6 +48,10 @@ class RunRecorder:
                 model=model, provider=ref.kind if ref else None, run=self.run_id,
             )
 
+    def cancelled(self) -> bool:
+        with tenant(self.firm_id) as s:
+            return scalar(s, "SELECT status = 'cancelled' FROM runs WHERE id = :r", r=self.run_id) is True
+
     def start(self) -> None:
         with tenant(self.firm_id) as s:
             scalar(s, "UPDATE runs SET status = 'running', started_at = now() WHERE id = :r RETURNING id",
@@ -59,7 +63,7 @@ class RunRecorder:
                 s,
                 """UPDATE runs SET status = 'needs_review', output = CAST(:out AS jsonb),
                           guardrails = CAST(:g AS jsonb), finished_at = now()
-                   WHERE id = :r RETURNING id""",
+                   WHERE id = :r AND status = 'running' RETURNING id""",
                 out=json.dumps(output, default=str), g=json.dumps(guardrails, default=str),
                 r=self.run_id,
             )
@@ -69,7 +73,7 @@ class RunRecorder:
             scalar(
                 s,
                 """UPDATE runs SET status = 'failed', error = :e, finished_at = now()
-                   WHERE id = :r RETURNING id""",
+                   WHERE id = :r AND status IN ('queued', 'running') RETURNING id""",
                 e=message, r=self.run_id,
             )
 

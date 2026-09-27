@@ -99,6 +99,20 @@ def reject(run_id: UUID, body: Decision, who: Principal = Depends(require("assoc
     return _decide(s, who, run_id, "rejected", body.note)
 
 
+@router.post("/runs/{run_id}/cancel")
+def cancel(run_id: UUID, who: Principal = Depends(principal), s: Session = Depends(db)) -> dict:
+    stopped = scalar(
+        s, """UPDATE runs SET status = 'cancelled', finished_at = now(), error = :e
+              WHERE id = :r AND status IN ('queued', 'running') RETURNING id""",
+        r=run_id, e=f"Stopped by {who.name}.",
+    )
+    if stopped is None:
+        found(row(s, "SELECT id FROM runs WHERE id = :r", r=run_id), "No such task.")
+        raise HTTPException(409, "This task has already finished.")
+    audit.record(s, who.firm_id, who.user_id, "run.cancelled", "run", run_id)
+    return {"ok": True}
+
+
 @router.get("/files/{file_id}")
 def download_file(file_id: UUID, who: Principal = Depends(principal), s: Session = Depends(db)) -> Response:
     f = found(row(s, "SELECT filename, content_type, storage_key, run_id FROM artifacts WHERE id = :a",

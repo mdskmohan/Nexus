@@ -32,7 +32,8 @@ export const RUN_STATUS: Record<RunStatus, { label: string; tone: string }> = {
   needs_review: { label: "Ready for your review", tone: "pill pill-warn" },
   approved: { label: "Approved", tone: "pill pill-ok" },
   rejected: { label: "Sent back", tone: "pill pill-bad" },
-  failed: { label: "Stopped", tone: "pill pill-bad" },
+  failed: { label: "Did not finish", tone: "pill pill-bad" },
+  cancelled: { label: "Stopped", tone: "pill" },
 };
 
 export function plural(n: number, one: string, many = `${one}s`): string {
