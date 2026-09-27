@@ -49,3 +49,26 @@ def test_india_playbooks_are_offered_to_firms(client):
     signup(client)
     slugs = [p["slug"] for p in client.get("/api/playbooks").json()]
     assert slugs[:3] == ["employment-india", "nda-india", "services-india"]
+
+
+def test_notice_benchmark_cases_are_valid_and_extra_sums_are_detected():
+    from nexus.agents.notice import ChequeNotice
+    from nexus.bench.india_notice import ADVOCATE, CASES, _extra_demand
+
+    for case in CASES:
+        n = ChequeNotice.from_input({**case, **ADVOCATE})
+        assert n.cheque_date <= n.presented_on <= n.information_received_on
+    assert _extra_demand("pay Rs. 4,50,000/- and interest of Rs. 20,000", 450000) == ["20,000"]
+    assert _extra_demand("pay ₹ 4,50,000/-", 450000) == []
+
+
+def test_chronology_scoring():
+    from nexus.bench.india_chronology import EXPECTED, score
+
+    table = "| Date | Event |\n|---|---|\n" + "\n".join(
+        f"| {d.day} {d.strftime('%B %Y')} | {label} [S{i}] |" for i, (d, label) in enumerate(EXPECTED, 1))
+    s = score(table, [{"verified": True}] * len(EXPECTED), [])
+    assert s["date_recall"] == 1.0 and s["in_order"] and s["sources_verified"] == len(EXPECTED)
+    shuffled = table.replace("12 January 2026", "XX").replace("| 15 July 2026", "| 12.01.2026 |x|\n| 15 July 2026")
+    s2 = score(shuffled, [], [])
+    assert s2["date_recall"] == 1.0 and s2["in_order"] is False

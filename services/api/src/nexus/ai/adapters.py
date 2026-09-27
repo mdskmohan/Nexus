@@ -234,8 +234,10 @@ def _openai(ref: ModelRef, system: str, conversation: list, tools: list[ToolSpec
             params["reasoning_effort"] = {"xhigh": "high", "max": "high"}.get(effort, effort)
     else:
         params["max_tokens"] = max_tokens
+    # Self-hosted endpoints: fail fast rather than tie a worker up retrying a server that is down or hung.
+    hosted = ref.kind == OPENAI
     client = openai.OpenAI(api_key=ref.api_key or "not-needed", base_url=ref.base_url or None,
-                           max_retries=4, timeout=600)
+                           max_retries=4 if hosted else 1, timeout=600 if hosted else 300)
     try:
         response = client.chat.completions.create(**params)
     except openai.APIStatusError as exc:

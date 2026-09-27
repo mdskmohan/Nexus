@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from nexus.ai.adapters import ANTHROPIC, COMPATIBLE, DEFAULT_PRICES, GOOGLE, KINDS, OPENAI, ModelRef
-from nexus.bench import india_review, lab, legalbench
+from nexus.bench import india_chronology, india_notice, india_review, lab, legalbench
 from nexus.config import REPO_ROOT, settings
 
 KEY_ENV = {ANTHROPIC: "ANTHROPIC_API_KEY", OPENAI: "OPENAI_API_KEY", GOOGLE: "GEMINI_API_KEY",
@@ -128,6 +128,25 @@ def cmd_india(args) -> None:
     print("  (answer keys not yet validated by a practising lawyer)")
 
 
+def cmd_india_notice(args) -> None:
+    ref = model_ref(args)
+    print(f"Nexus India s.138 notices: {len(india_notice.CASES)} cases on {ref.model}")
+    data = india_notice.run(ref)
+    data.update(provider=ref.kind, model=ref.model)
+    path = _save("india-notice", data)
+    for k in ("completed", "first_time_right", "no_extra_demand", "cites_section_138"):
+        print(f"  {k.replace('_', ' ')}: {data[k]:.0%}")
+    print(f"  cost: ${data['cost_usd']:.2f}\n  saved: {path}")
+
+
+def cmd_india_chronology(args) -> None:
+    ref = model_ref(args)
+    print(f"Nexus India list of dates: {len(india_chronology.EXPECTED)} expected events on {ref.model}")
+    data = india_chronology.run(ref)
+    data.update(provider=ref.kind, model=ref.model)
+    print(f"  saved: {_save('india-chronology', data)}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="nexus-bench", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -160,6 +179,9 @@ def main() -> None:
 
     ind = sub.add_parser("india-review", help="Nexus India contract-review benchmark (planted issues)")
     ind.set_defaults(func=cmd_india)
+    sub.add_parser("india-notice", help="Nexus India s.138 cheque-dishonour notices").set_defaults(func=cmd_india_notice)
+    sub.add_parser("india-chronology", help="Nexus India list of dates and events").set_defaults(
+        func=cmd_india_chronology)
 
     args = parser.parse_args()
     args.func(args)
