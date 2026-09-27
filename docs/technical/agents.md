@@ -2,19 +2,22 @@
 
 All agents share one loop (`nexus/agents/base.py`) and one set of research
 tools (`nexus/agents/matter_tools.py`). They differ in their system prompt,
-their finishing tool, and the checks that tool enforces.
+their finishing tool, and the checks that tool enforces. The loop talks to
+models through `nexus/ai/adapters.py`, so it is the same for every provider.
 
 ## The loop
 
 ```
+model = the run's chosen model, else the firm default (nexus/ai/registry.py)
 system prompt (+ firm preferences + matter context)
 user message (the task)
 repeat up to max_steps:
-    response = Claude(messages, tools)          # adaptive thinking, effort from settings
-    meter tokens and cost; stop if over budget
+    stop if someone pressed "Stop task"
+    turn = complete(model, conversation, tools)   # provider-neutral
+    meter tokens (and cost, if the model is priced); stop over the token or money limit
     stop on refusal; stop if truncated with no tool call
-    if no tool calls: nudge once to call the finishing tool, then stop
-    run every tool call; record each as a step; return results (errors as is_error)
+    if no tool calls: nudge (agent-specific: names what is missing), at most twice
+    run every tool call; record each as a step; return results (errors flagged)
     if the finishing tool accepted the work: return the result
 ```
 
@@ -29,10 +32,16 @@ Properties that matter for legal work:
   back to the model as an error result with the specific problems. After
   `max_finish_attempts` (3) rejections the run stops with the last problem shown
   to the lawyer.
-- **Model defaults** (`nexus/llm.py`): `claude-opus-5`, adaptive thinking,
-  effort `high`, automatic prompt caching, and server-side refusal fallbacks
-  (`fallbacks: "default"`); a response served by the fallback model is recorded
-  as a warning step.
+- **Providers** (`nexus/ai/adapters.py`): Anthropic (adaptive thinking, effort,
+  automatic prompt caching, server-side refusal fallbacks), OpenAI (strict
+  function schemas, reasoning effort for reasoning models), Google Gemini
+  (function declarations with JSON Schema; thought signatures echoed back),
+  and OpenAI-compatible endpoints. Provider-native assistant content is echoed
+  back unchanged. Missing keys, rejected keys, unknown models and unreachable
+  endpoints raise `ModelUnavailable`, with one message for lawyers and one for
+  the admin setting things up.
+- **Interrupted runs.** A run whose worker died is marked interrupted (never
+  left running); the job of a dead worker on the same host is reclaimed at once.
 
 ## Research tools
 
@@ -86,6 +95,17 @@ Tools: research tools, `write_deliverable(filename, content, sources[])`, `finis
 - `deliverables.py` renders `.docx` (headings, lists, bold/italic, tables,
   superscript source numbers, a Sources section), `.xlsx` (one sheet per
   table) or `.md`.
+
+## Legal notice (`agents/notice.py`)
+
+First notice type: demand notice for a dishonoured cheque under s.138 NI Act.
+The lawyer's form supplies the facts; `nexus/india/cheque.py` computes the
+statutory timeline (validity, 30-day notice window, 15-day payment window,
+one-month complaint limitation) and the amount in figures and words. The AI
+only drafts. `write_notice` runs `fact_checks`: the cheque number, amount in
+figures and words, cheque date (in any common Indian format), bank, both
+names, the reason for dishonour and the 15-day demand must all appear, or the
+draft goes back to the AI. The notice is rendered to Word.
 
 ## Adding an agent
 

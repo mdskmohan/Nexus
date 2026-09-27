@@ -13,7 +13,8 @@
                                         │                    ▲
                                         │ agent loop         │ passages, runs, steps, audit
                                         ▼                    │
-                                  Claude API (Messages) ─────┘ (tools execute in the worker)
+                     the firm's chosen model provider ─────┘ (tools execute in the worker)
+                     (Claude, GPT, Gemini, OpenAI-compatible, or on-premises)
                                         │
                                   File storage (originals, generated Word/Excel)
 ```
@@ -25,7 +26,9 @@
 | Worker | `nexus/tasks.py`, `nexus/jobs.py` | Document ingestion and AI runs, off the request path. |
 | Ingestion | `nexus/ingest` | Extract text (PDF, Word, Excel, PowerPoint, email, text) and split it into passages. |
 | Search | `nexus/search.py` | Postgres full-text search over one matter's passages. |
-| Agents | `nexus/agents` | The agent loop and the three agents: ask, review, draft. |
+| AI providers | `nexus/ai` | One interface over Anthropic, OpenAI, Google and OpenAI-compatible models; encrypted firm keys; model choice. |
+| Agents | `nexus/agents` | The agent loop and the agents: ask, review, draft, legal notice. |
+| India | `nexus/india`, `nexus/playbooks_india.py` | Section 138 timeline and Indian amount formatting; Indian-law playbooks. |
 | Guardrails | `nexus/guardrails`, `agents/base.py`, `agents/cite.py` | Citation verification, document scans, limits. |
 | Observability | `nexus/observability.py` | Per-step activity record, token and cost metering, firm metrics. |
 | Outputs | `nexus/redline.py`, `nexus/deliverables.py` | Review memo, Word tracked changes, Word/Excel drafts. |
@@ -59,7 +62,7 @@ See the [ADRs](../adr/). In short:
 - **Postgres for everything stateful** (data, search, queue, audit): one system
   to secure, back up and reason about. Row-level security gives tenant
   isolation that does not depend on application code being correct.
-- **Our own agent loop on the Messages API**, rather than a framework, so every
+- **Our own agent loop over a provider-neutral interface**, rather than a framework, so every
   tool call passes through our guardrails and our activity record, and so the
   loop has exactly the properties a law firm needs (bounded steps and spend, no
   retries of paid work, finishing tools that can reject output).

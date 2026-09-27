@@ -26,9 +26,12 @@
 
 ## What is sent to the AI provider
 
-To perform a task, Nexus sends the AI provider (Anthropic's Claude API):
+Each firm chooses its AI provider in *Firm settings → AI models*: Anthropic
+(Claude), OpenAI (GPT), Google (Gemini), an OpenAI-compatible service, or a
+model running on the firm's own server. To perform a task, Nexus sends the
+chosen provider:
 
-- the task instructions (the question, review brief or drafting brief);
+- the task instructions (the question, review brief, drafting brief or notice facts);
 - the firm's preferences and the matter's name, client and description;
 - the text of the passages the AI searches for and reads;
 - for reviews, the playbook.
@@ -36,14 +39,20 @@ To perform a task, Nexus sends the AI provider (Anthropic's Claude API):
 Original files are not sent, only the text the AI needs. The provider is not
 given access to the database or file storage.
 
-Under Anthropic's commercial terms, inputs and outputs sent through the API
-are not used to train its models by default. Retention periods and options
-(including zero-data-retention arrangements) depend on the account and
-agreement. **The firm must confirm the current terms for its own deployment.**
+**Provider terms decide what happens next.** Whether a provider may retain the
+data, for how long, and whether it may use it to train or improve its models
+depends on that provider's terms for API use and on the firm's account. Paid
+API terms from the major providers generally exclude training on customer
+content by default, but **some free tiers allow the provider to use submitted
+content to improve its products** (at the time of writing, this includes
+Google's free Gemini API tier). **Do not send client documents through a free
+tier.** The firm must confirm the current terms for the account it connects.
+A model on the firm's own server keeps everything inside its network.
 
-Running Claude through a firm's own cloud account (for example Amazon Bedrock or
-Google Cloud Vertex AI), for firms that need data to stay within a particular
-cloud or region, is on the roadmap but not yet supported.
+**Keys.** A provider key is encrypted in the database (AES-256-GCM, bound to the
+firm, under a master key held outside the database), used only by the server
+when a task runs, and never shown again after it is saved. Only admins can add,
+replace or remove keys; every change is written to the audit trail.
 
 ## Retention and deletion
 

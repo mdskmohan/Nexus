@@ -88,7 +88,7 @@ export type Step = {
 };
 
 export type Run = {
-  id: string; matter_id: string; matter_name?: string; kind: "ask" | "review" | "draft"; status: RunStatus; title: string;
+  id: string; matter_id: string; matter_name?: string; kind: "ask" | "review" | "draft" | "notice"; status: RunStatus; title: string;
   created_at: string; started_at: string | null; finished_at: string | null; cost_usd: string;
   guardrails: {
     citations_checked?: number; citations_verified?: number; statements_removed?: number;

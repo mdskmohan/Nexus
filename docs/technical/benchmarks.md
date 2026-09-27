@@ -4,6 +4,34 @@ Nexus is measured on public legal benchmarks using their **official data and
 official scoring**, so results are comparable with published numbers. Every run
 calls the model and costs money; use the limits below.
 
+Every command takes the model under test: `--provider anthropic|openai|google|openai_compatible`,
+`--model`, and for compatible endpoints `--base-url`. Keys are read from `.env` or the
+environment (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `NEXUS_BENCH_API_KEY`).
+`--price IN OUT` (USD per million tokens) adds costs for models without list prices.
+
+## Nexus India benchmarks
+
+Nexus's own benchmarks for its Indian use cases. The data is original and
+fictional; answer keys were written with the data and **have not yet been
+validated by a practising lawyer**, and results say so.
+
+| Command | Use case | Scored on |
+|---|---|---|
+| `nexus-bench india-review` | Contract review under Indian law: a Pune services agreement, a Bengaluru NDA and a Hyderabad employment agreement, each with planted issues | Issue recall, false alarms, citation integrity, completion |
+| `nexus-bench india-notice` | Section 138 cheque-dishonour notices: five cases from ₹75,000 to ₹2.87 crore | Completed, first time right against the entered facts, no extra sums demanded, cites s.138 |
+
+```bash
+cd services/api
+uv run nexus-bench --provider google --model <gemini model> india-review
+uv run nexus-bench --provider anthropic --model claude-opus-5 india-notice
+```
+
+Public Indian benchmark: **IL-TUR** (ACL 2024; 8 tasks on Indian legal text,
+including statute identification, judgment prediction and summarisation) is on
+Hugging Face as `Exploration-Lab/IL-TUR`. It is gated (access is approved by
+the authors) and licensed CC BY-NC-SA 4.0, so it can be used for internal
+evaluation but not redistributed or used commercially.
+
 ## LegalBench (includes CUAD, ContractNLI, MAUD)
 
 [LegalBench](https://hazyresearch.stanford.edu/legalbench/) (Guha et al.,

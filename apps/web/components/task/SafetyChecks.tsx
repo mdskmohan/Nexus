@@ -21,7 +21,10 @@ export default function SafetyChecks({ run }: { run: Run }) {
     <div className="card">
       <div className="card-head"><h3>Safety checks</h3></div>
       <ul className="card-pad" style={{ listStyle: "none", margin: 0, paddingTop: 8 }}>
-        {finished && (
+        {finished && run.kind === "notice" && (
+          <Check ok>Every fact you entered was checked against the notice; dates and amounts were calculated by Nexus</Check>
+        )}
+        {finished && run.kind !== "notice" && (
           <Check ok>
             {g.citations_verified ?? 0} quotes checked word for word against the documents
           </Check>

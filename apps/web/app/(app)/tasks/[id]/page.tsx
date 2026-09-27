@@ -7,11 +7,12 @@ import { duration, RUN_STATUS, when } from "@/lib/format";
 import { useMe } from "@/lib/me";
 import AskResult from "@/components/task/AskResult";
 import DraftResult from "@/components/task/DraftResult";
+import NoticeResult from "@/components/task/NoticeResult";
 import ReviewResult from "@/components/task/ReviewResult";
 import SafetyChecks from "@/components/task/SafetyChecks";
 import Timeline from "@/components/task/Timeline";
 
-const KIND = { ask: "Question", review: "Contract review", draft: "Drafting" } as const;
+const KIND = { ask: "Question", review: "Contract review", draft: "Drafting", notice: "Legal notice" } as const;
 
 export default function TaskPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -99,6 +100,7 @@ export default function TaskPage({ params }: { params: Promise<{ id: string }> }
           {run.output && run.kind === "ask" && <AskResult output={run.output} />}
           {run.output && run.kind === "review" && <ReviewResult output={run.output} files={run.files ?? []} />}
           {run.output && run.kind === "draft" && <DraftResult output={run.output} files={run.files ?? []} />}
+          {run.output && run.kind === "notice" && <NoticeResult output={run.output as never} files={run.files ?? []} />}
 
           {canDecide && (
             <div className="card card-pad stack">

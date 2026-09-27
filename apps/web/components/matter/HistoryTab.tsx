@@ -15,7 +15,7 @@ export default function HistoryTab({ runs }: { runs: Run[] }) {
           {runs.map((r) => (
             <tr key={r.id} className="link-row" onClick={() => router.push(`/tasks/${r.id}`)}>
               <td>
-                <div className="faint">{{ ask: "Question", review: "Contract review", draft: "Drafting" }[r.kind]}</div>
+                <div className="faint">{{ ask: "Question", review: "Contract review", draft: "Drafting", notice: "Legal notice" }[r.kind]}</div>
                 <div style={{ fontWeight: 600 }}>{r.title}</div>
               </td>
               <td>

@@ -5,6 +5,7 @@ import { api, type Doc, type Matter, type Run } from "@/lib/api";
 import AskTab from "@/components/matter/AskTab";
 import DocumentsTab from "@/components/matter/DocumentsTab";
 import DraftTab from "@/components/matter/DraftTab";
+import NoticeTab from "@/components/matter/NoticeTab";
 import HistoryTab from "@/components/matter/HistoryTab";
 import ReviewTab from "@/components/matter/ReviewTab";
 
@@ -12,6 +13,7 @@ const TABS = [
   { id: "ask", label: "Ask a question" },
   { id: "review", label: "Review a contract" },
   { id: "draft", label: "Draft a document" },
+  { id: "notice", label: "Legal notice" },
   { id: "documents", label: "Documents" },
   { id: "history", label: "History" },
 ] as const;
@@ -74,6 +76,7 @@ export default function MatterPage({ params }: { params: Promise<{ id: string }>
       {tab === "ask" && <AskTab matterId={id} readyDocs={ready} onGoToDocuments={() => setTab("documents")} />}
       {tab === "review" && <ReviewTab matterId={id} readyDocs={ready} onGoToDocuments={() => setTab("documents")} />}
       {tab === "draft" && <DraftTab matterId={id} readyDocs={ready} onGoToDocuments={() => setTab("documents")} />}
+      {tab === "notice" && <NoticeTab matterId={id} />}
       {tab === "documents" && <DocumentsTab matterId={id} docs={docs} onChange={refresh} />}
       {tab === "history" && <HistoryTab runs={runs} />}
     </>

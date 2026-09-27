@@ -48,9 +48,20 @@ The web app sets `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
 `Referrer-Policy: same-origin` and a restrictive `Permissions-Policy`, and
 hides `X-Powered-By`.
 
+## Firms' AI keys
+
+Stored AES-256-GCM encrypted with a master key (`NEXUS_SECRET_KEY`) that is not
+in the database; the firm id is authenticated data, so a ciphertext copied to
+another firm does not decrypt. Keys are write-only through the API (only the
+last four characters are ever returned), usable only by the server, and every
+add, change or removal is audited. Provider endpoints must use HTTPS unless
+they are on the same machine.
+
 ## Secrets
 
-`.env` (git-ignored) holds `ANTHROPIC_API_KEY` and `NEXUS_JWT_SECRET`. The dev
+`.env` (git-ignored) holds `NEXUS_JWT_SECRET`, `NEXUS_SECRET_KEY` and optionally
+`ANTHROPIC_API_KEY`. Rotating `NEXUS_SECRET_KEY` requires re-encrypting stored
+keys (ciphertexts carry a version prefix for this). The dev
 defaults for database passwords are for local use only; set
 `NEXUS_DB_OWNER_PASSWORD` / `NEXUS_DB_APP_PASSWORD` and the URLs in production.
 

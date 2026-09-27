@@ -5,6 +5,7 @@
 
 ## For partners, risk and compliance
 - **[Legal framework](legal/README.md)**: design principles
+  - [Indian legal practice](legal/india.md): privilege, DPDP Act, Indian-law playbooks, section 138 notices
   - [Professional responsibility](legal/professional-responsibility.md): competence, confidentiality, supervision, candour, fees
   - [Data handling and confidentiality](legal/data-handling.md)
   - [Scope and limitations](legal/limitations.md)

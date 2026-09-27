@@ -7,6 +7,11 @@ import ModelPicker from "@/components/ModelPicker";
 
 const TEMPLATES = [
   {
+    label: "List of dates and events",
+    file: "list-of-dates.docx",
+    text: "Prepare a List of Dates and Events from all documents in this matter, in the form used in Indian court filings (for example with a Special Leave Petition or an appeal). Use a table with two columns, Date and Event, in chronological order. Include every date that matters to the dispute: agreements, notices, payments, correspondence, orders and filings. Write each event in one or two neutral, factual sentences, and give every event a source. Where a document gives only a month or year, say so. Where documents give conflicting dates, list both and note the conflict. Do not add argument.",
+  },
+  {
     label: "Issues memo",
     file: "issues-memo.docx",
     text: "Review all documents in this matter and prepare an issues memo for the supervising partner. For each issue: what it is, where it comes from, why it matters, and what we recommend. End with a short list of open questions for the client.",

@@ -12,6 +12,7 @@ anyone assessing Nexus for a law firm.
 
 | Document | What it covers |
 |---|---|
+| [Indian legal practice](india.md) | Privilege, DPDP Act, Indian-law playbooks, section 138 notices |
 | [Professional responsibility](professional-responsibility.md) | How the product maps to the duties of competence, confidentiality, supervision, candour and fair billing |
 | [Data handling and confidentiality](data-handling.md) | What data goes where, isolation between clients and firms, retention, the AI provider |
 | [Scope and limitations](limitations.md) | What Nexus does, what it does not do, and known failure modes |

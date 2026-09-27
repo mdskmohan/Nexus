@@ -5,7 +5,7 @@
 - Docker (for Postgres)
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/)
 - Node.js 20.9+ (22 recommended)
-- An Anthropic API key, for the AI features
+- For the AI features: a key for Claude, GPT or Gemini (or another OpenAI-compatible service), or a local model
 
 ## First run
 
@@ -13,7 +13,10 @@
 cp .env.example .env
 ```
 
-Edit `.env`: set `ANTHROPIC_API_KEY`, and set `NEXUS_JWT_SECRET` to the output of `openssl rand -hex 32`.
+Edit `.env`: set `NEXUS_JWT_SECRET` (`openssl rand -hex 32`) and `NEXUS_SECRET_KEY`
+(`openssl rand -base64 32`, which encrypts firms' AI keys). `ANTHROPIC_API_KEY` is
+optional: firms connect their own AI models in *Firm settings → AI models*; the
+platform key is used only by firms that have not.
 
 ```bash
 make dev
@@ -27,9 +30,13 @@ create a firm, or load the demo firm:
 cd services/api && uv run nexus-seed-demo
 ```
 
-The demo firm has one matter with a sample NDA (with deliberate issues for the
+The demo firm has a matter with a sample NDA (with deliberate issues for the
 reviewer to catch) and an email containing a planted AI instruction (to show
-the upload scan). The sign-in details are printed by the command.
+the upload scan), and an Indian matter with a Pune services agreement. The
+sign-in details are printed by the command. Connect an AI model in *Firm
+settings → AI models* to use the AI features (for local testing, Ollama with a
+model that supports tool calling, and a context window of at least 16,000
+tokens for reviews and drafts).
 
 ## Tests
 
@@ -41,7 +48,9 @@ Tests run against a real Postgres: a `nexus_test` database on the dev server,
 created and migrated from scratch each session. They cover row-level security,
 the append-only audit trail, roles, ingestion of every supported format,
 citation verification, document scans, Word tracked changes, and Word/Excel
-rendering. They do not call the AI model.
+rendering. Most tests do not call an AI model. Two live checks run when possible: a real
+provider rejecting an invalid key (skipped without network), and a tool-call
+round trip on a local Ollama model (skipped unless Ollama has `qwen3:4b`).
 
 ## Configuration
 
@@ -50,12 +59,14 @@ All settings are environment variables with the `NEXUS_` prefix (see
 
 | Variable | Default | |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | Required for AI features |
-| `NEXUS_MODEL` | `claude-opus-5` | Model for all agents |
+| `NEXUS_SECRET_KEY` | — | Required to store firms' AI keys (32 bytes, base64) |
+| `ANTHROPIC_API_KEY` | — | Optional platform model for firms without their own |
+| `NEXUS_MODEL` | `claude-opus-5` | The platform model (with `ANTHROPIC_API_KEY`) |
 | `NEXUS_EFFORT` | `high` | `low` / `medium` / `high` / `xhigh` / `max` |
 | `NEXUS_MODEL_FALLBACKS` | `true` | Server-side refusal fallbacks |
 | `NEXUS_AGENT_MAX_STEPS` | `30` | Default step limit (review 60, draft 80) |
-| `NEXUS_AGENT_BUDGET_USD` | `5.00` | Spending limit per task |
+| `NEXUS_AGENT_BUDGET_USD` | `5.00` | Spending limit per task (priced models) |
+| `NEXUS_AGENT_TOKEN_BUDGET` | `4000000` | Size limit per task (every model) |
 | `NEXUS_MAX_UPLOAD_MB` | `50` | |
 | `NEXUS_SESSION_HOURS` | `12` | |
 | `NEXUS_COOKIE_SECURE` | `false` | `true` behind HTTPS |

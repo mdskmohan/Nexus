@@ -28,16 +28,18 @@ verified, statements removed, tasks awaiting review, flagged documents, and cost
   (passage ids returned, verification failures, finding payloads). In the UI:
   *Show technical details*.
 - **Metering.** `runs.input_tokens`, `output_tokens`, `cache_read_tokens`,
-  `cost_usd`, `model`, updated after every model call. Cost uses the per-model
-  prices in `nexus/llm.py` (cache reads at 10% and 5-minute cache writes at
-  125% of the input price).
+  `cost_usd`, `model`, `provider`, updated after every model call. Cost uses
+  the price the firm set for the model, or list prices for Claude models
+  (`nexus/ai/adapters.py`; Claude cache reads at 10% and 5-minute cache writes
+  at 125% of the input price). Unpriced models show no cost; the token limit
+  still applies.
 - **Timing.** `runs.started_at` / `finished_at`, and `duration_ms` for each
   tool step.
 - **Logs.** API and worker log to stdout (`nexus.api`, `nexus.jobs`,
   `nexus.tasks`); unhandled errors are logged with stack traces and shown to
   users as a generic message.
-- **Health.** `GET /api/health` checks the database and reports whether a model
-  key is configured.
+- **Health.** `GET /api/health` checks the database and reports whether the
+  platform model key and the key-encryption key are configured.
 - **Jobs.** The `jobs` table records attempts, last error and lock owner; stale
   locks (worker died) are reclaimed after 30 minutes.
 
