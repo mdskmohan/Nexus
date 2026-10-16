@@ -18,7 +18,8 @@ from alembic.config import Config  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
 
 API_DIR = Path(__file__).resolve().parents[1]
-TENANT_TABLES = "audit_events, human_requests, run_steps, runs, ai_models, ai_providers, users, workspaces, jobs"
+TENANT_TABLES = ("audit_events, human_requests, run_steps, runs, kg_items, kg_versions, connections, ai_models, "
+                 "ai_providers, users, workspaces, jobs")
 
 
 def _owner_url(db: str) -> str:
@@ -38,6 +39,9 @@ def database():
     cfg = Config(str(API_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(API_DIR / "migrations"))
     command.upgrade(cfg, "head")
+    from nexus import demo
+
+    demo.install()
     yield
 
 

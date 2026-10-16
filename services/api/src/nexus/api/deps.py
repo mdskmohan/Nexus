@@ -52,6 +52,15 @@ def require(permission: str):
     return check
 
 
+def require_any(*permissions: str):
+    def check(who: Principal = Depends(principal)) -> Principal:
+        if not any(can(who.role, p) for p in permissions):
+            raise HTTPException(403, "Your role does not allow this. Ask an administrator.")
+        return who
+
+    return check
+
+
 def found(value, what: str = "Not found"):
     if value is None:
         raise HTTPException(404, what)

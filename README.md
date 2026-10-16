@@ -19,8 +19,12 @@ OpenAI-compatible and on-premises) with encrypted keys, durable runs that pause 
 without repeating work, stopping runs, recovery after a crash, and an append-only audit trail. A web app with
 sign-in, an approvals inbox and workspace settings. 30 automated tests pass against a real Postgres.
 
-**Next:** M1, connecting Snowflake and Databricks and building the knowledge graph. See the
-[build plan](docs/build-plan.md).
+**M1, connections and the knowledge graph, is mostly built:** Snowflake, Databricks and Postgres
+connections with encrypted credentials; tables, columns and declared keys read into the graph as proposals;
+join suggestions checked against real data, including joins across warehouses; metrics and entities; steward
+review with graph versions; join paths in Apache AGE. 40 tests pass. Still open: semantic views, lineage,
+query history, per-user warehouse permissions, and testing the Snowflake and Databricks connectors against
+real accounts. See the [build plan](docs/build-plan.md).
 
 ## Quick start
 
@@ -31,7 +35,12 @@ cp .env.example .env          # set NEXUS_JWT_SECRET and NEXUS_SECRET_KEY
 make dev                      # database, API, worker and web app
 ```
 
-Open http://localhost:3100, create a workspace, and connect an AI model in Workspace settings.
+Open http://localhost:3100, create a workspace, and connect an AI model in Workspace settings. To try the
+knowledge graph without a warehouse, add two demo warehouses to your workspace:
+
+```bash
+cd services/api && uv run nexus-seed-demo --email you@example.com
+```
 
 ```bash
 make test                     # backend tests against a real Postgres

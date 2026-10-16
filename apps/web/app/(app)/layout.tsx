@@ -8,6 +8,8 @@ import { MeContext } from "@/lib/me";
 
 const NAV = [
   { href: "/", label: "Home", match: (p: string) => p === "/" },
+  { href: "/knowledge", label: "Knowledge graph", match: (p: string) => p.startsWith("/knowledge") },
+  { href: "/connections", label: "Connections", match: (p: string) => p.startsWith("/connections") },
   { href: "/settings", label: "Workspace settings", match: (p: string) => p.startsWith("/settings") },
 ];
 

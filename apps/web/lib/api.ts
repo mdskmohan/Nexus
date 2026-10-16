@@ -75,3 +75,31 @@ export type Run = {
   model: string | null; cost_usd: string; created_at: string; started_at: string | null; finished_at: string | null;
   created_by_name: string | null; steps?: Step[];
 };
+
+export type SpecField = {
+  name: string; label: string; required: boolean; secret: boolean; multiline: boolean;
+  help: string; placeholder: string; default: string; options: string[];
+};
+export type ConnectorSpec = { kind: string; name: string; description: string; docs_url: string; verified: boolean; fields: SpecField[] };
+
+export type Connection = {
+  id: string; kind: string; label: string; config: Record<string, string>; secrets_saved: string[]; verified: boolean;
+  last_test_ok: boolean | null; last_test_at: string | null; last_test_msg: string | null;
+  collect_status: "never" | "queued" | "running" | "done" | "failed"; collected_at: string | null; collect_msg: string | null;
+  created_at: string;
+};
+
+export type ItemKind = "table" | "column" | "join" | "entity" | "metric";
+export type ItemStatus = "proposed" | "approved" | "rejected" | "deprecated";
+
+export type KgItem = {
+  id: string; kind: ItemKind; key: string; name: string; description: string; attrs: Record<string, any>;
+  status: ItemStatus; origin: "discovered" | "suggested" | "person"; connection_id: string | null;
+  connection_label: string | null; parent_id: string | null; approved_in: number | null; deprecated_in: number | null;
+  missing_since: string | null; review_note: string | null; reviewed_at: string | null; reviewed_by_name: string | null;
+  proposed_by_name: string | null; created_at: string;
+  columns?: KgItem[]; joins?: KgItem[];
+};
+
+export type GraphSummary = { version: number; counts: Partial<Record<ItemKind, Partial<Record<ItemStatus, number>>>>; missing: number };
+export type JoinPath = { hops: number; joins: { id: string; name: string; cross_source: boolean }[] };

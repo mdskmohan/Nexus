@@ -27,6 +27,13 @@ them as data so nothing in the core changes for them ([ADR-010](adr/ADR-010-indu
 | **M6** | **Proof** | A cross-warehouse demo and a benchmark (time to build, correct-answer rate) against the same app built with an agent framework and each warehouse's own tools. |
 | Later | | SDK (Python, then TypeScript) that writes the same agent spec; dashboards; more connectors; SSO and SCIM; billing; deployment in the customer's own cloud; industry packs. |
 
+## Where we are
+
+| | Status |
+|---|---|
+| M0 | **Done.** 30 tests. |
+| M1 | **Mostly done.** Built: connections for Snowflake, Databricks and Postgres with encrypted credentials and connection tests; reading tables, columns, comments and declared foreign keys; everything arrives as a proposal; join suggestions from declared keys, names and data (sampled values looked up in the other side, which also finds joins across warehouses); metrics (checked by parsing) and entities; steward review with versions; the AGE graph with join paths at any version; web pages for connections and the knowledge graph; two demo warehouses (`nexus-seed-demo`). **Still open:** reading semantic and metric views, lineage and query history; running queries with each user's own warehouse permissions; and testing the Snowflake and Databricks connectors against real accounts (both are written but unverified). |
+
 ## M0 in detail
 
 What is ported from the earlier product in this repository (tag `archive/legal-v0`), and what changes:

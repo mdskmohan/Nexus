@@ -15,3 +15,4 @@ accepted; a later record supersedes an earlier one.
 | [ADR-008](ADR-008-guardrails-in-code.md) | Guardrails enforced in code |
 | [ADR-009](ADR-009-combine-across-warehouses-in-duckdb.md) | Combine results across warehouses in DuckDB |
 | [ADR-010](ADR-010-industry-packs-as-data.md) | Industry packs loaded as data, built later |
+| [ADR-011](ADR-011-graph-record-and-projection.md) | The knowledge graph is a reviewed record in tables, projected into AGE |

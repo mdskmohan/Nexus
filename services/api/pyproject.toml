@@ -11,6 +11,7 @@ dependencies = [
     "anthropic>=1",
     "argon2-cffi>=25.1.0",
     "cryptography>=50.0.1",
+    "databricks-sql-connector>=4.6.0",
     "email-validator>=2.3.0",
     "fastapi>=0.141.1",
     "google-genai>=2.25.0",
@@ -19,12 +20,15 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "pyjwt>=2.15.0",
     "python-dotenv>=1.2.3",
+    "snowflake-connector-python>=5.0.0",
     "sqlalchemy>=2",
+    "sqlglot>=30.23.0",
     "uvicorn[standard]>=0.54.0",
 ]
 
 [project.scripts]
 nexus-worker = "nexus.runtime.worker:main"
+nexus-seed-demo = "nexus.demo:main"
 
 [build-system]
 requires = ["uv_build>=0.9.24,<0.10.0"]

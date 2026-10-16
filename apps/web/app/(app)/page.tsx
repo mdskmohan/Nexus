@@ -8,8 +8,6 @@ import { useMe } from "@/lib/me";
 
 // What the workspace can do today, and what is coming (see docs/build-plan.md).
 const COMING = [
-  { title: "Connect your warehouses", body: "Snowflake and Databricks. Nexus reads schemas, lineage and metric definitions." },
-  { title: "Knowledge graph", body: "Business entities, metrics and joins, approved by a data steward before agents use them." },
   { title: "Agent Studio", body: "Build agents on a visual canvas, test them step by step, and publish them to your team." },
 ];
 
@@ -85,6 +83,8 @@ export default function Home() {
             {can(me, "manage_ai") ? <Link href="/settings">Workspace settings → AI models</Link> : "Ask an administrator."}
           </p>
           <p><strong>Invite your team</strong> and give each person a role. {can(me, "manage_people") && <Link href="/settings">Workspace settings → Team</Link>}</p>
+          <p><strong>Connect your warehouses</strong> so Nexus can read their tables and columns. {can(me, "manage_connections") && <Link href="/connections">Connections</Link>}</p>
+          <p><strong>Review the knowledge graph.</strong> A steward approves tables, joins and metrics before agents use them. <Link href="/knowledge">Knowledge graph</Link></p>
         </div>
       </section>
 

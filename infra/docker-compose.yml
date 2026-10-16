@@ -2,7 +2,8 @@
 # already running on the machine.
 services:
   postgres:
-    image: postgres:16-alpine
+    # Postgres 16 with the Apache AGE extension, which holds the knowledge graph.
+    image: apache/age:release_PG16_1.6.0
     environment:
       POSTGRES_USER: nexus_owner
       POSTGRES_PASSWORD: nexus_owner_dev

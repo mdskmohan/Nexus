@@ -37,7 +37,7 @@ Three processes: the **API** (FastAPI), the **worker** (runs, collection jobs) a
 |---|---|---|
 | Backend API and worker | Python 3.12, FastAPI, SQLAlchemy Core, Alembic, uv | [ADR-001](adr/ADR-001-python-fastapi-backend.md) |
 | System of record | Postgres, with tenants isolated by row-level security | [ADR-002](adr/ADR-002-postgres-and-row-level-security.md) |
-| Knowledge graph | Apache AGE (Cypher in Postgres), behind one graph interface | [ADR-003](adr/ADR-003-knowledge-graph-in-apache-age.md) |
+| Knowledge graph | Reviewed record in Postgres, approved graph in Apache AGE | [ADR-003](adr/ADR-003-knowledge-graph-in-apache-age.md), [ADR-011](adr/ADR-011-graph-record-and-projection.md) |
 | Context graph | Append-only Postgres tables linked to graph nodes | [ADR-004](adr/ADR-004-context-graph-append-only.md) |
 | Agent definition | One versioned agent spec, JSON Schema as the source of truth | [ADR-005](adr/ADR-005-visual-builder-first-one-agent-spec.md) |
 | Agent runtime | Our own, on the durable run and job queue | [ADR-006](adr/ADR-006-own-agent-runtime.md) |
@@ -93,11 +93,29 @@ queued ──► running ──► succeeded
 - `waiting` is how human-in-the-loop works: the run's state is saved, the job ends, and a new job resumes the
   run when a person answers. Nothing is held in memory while a person decides.
 
-### Knowledge graph (M1)
+### Connections and the knowledge graph (M1)
 
-What is true about the business: sources, tables, columns, entities, metrics, dimensions, joins, lineage,
-glossary terms. Everything that is discovered automatically arrives as a **proposal**; only **approved**
-items reach agents. The graph is versioned and every run records the version it planned against.
+A **connection** is one warehouse (Snowflake, Databricks, or Postgres). Its secret settings are encrypted
+like AI keys and never returned. Nexus reads it with read-only queries: tables, columns, comments and
+declared foreign keys.
+
+The **knowledge graph** is what is true about the business: tables, columns, joins, entities and metrics.
+Everything read from a warehouse or suggested by Nexus arrives as a **proposal**; only **approved** items reach
+agents. Approving a table approves its columns; a join, metric or entity needs its tables approved first.
+Retiring a table retires everything that depends on it.
+
+**Join suggestions** use three kinds of evidence: declared foreign keys; names (`customer_ref` and a table
+`customers` with an `id`); and data (a sample of the referencing column's values is looked up in the other
+column, which must also be a key). Name matches are proposed only when the data agrees, so joins across
+warehouses come with evidence. A rejected suggestion is never proposed again.
+
+**Metrics** are an aggregate over one table, with an optional filter, in that warehouse's SQL. They are
+checked by parsing (sqlglot): one aggregate expression, no subqueries, only the table's columns.
+
+Each approved change is a new **graph version**. The record lives in tables (`kg_items`, `kg_versions`) and the
+approved graph is projected into Apache AGE for traversal, one graph per workspace, reachable only through a
+database function scoped to the transaction's workspace
+([ADR-011](adr/ADR-011-graph-record-and-projection.md)). Join paths can be found as of any version.
 
 ### Context graph (M3)
 
@@ -130,8 +148,10 @@ services/api/        FastAPI API, worker, migrations and tests
   src/nexus/
     ai/              model adapters, registry, encrypted keys
     api/             HTTP routes
+    connectors/      Snowflake, Databricks and Postgres: read-only metadata and samples
+    graph/           knowledge graph: collection, join suggestion, metrics, review, AGE projection
     runtime/         durable runs (and, from M2, the agent runtime)
-infra/               local Postgres
+infra/               local Postgres (with Apache AGE)
 docs/                build plan, architecture, decision records
 scripts/             developer scripts
 ```
