@@ -1,0 +1,20 @@
+# Local development database. Port 5544 so it never clashes with a Postgres
+# already running on the machine.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nexus_owner
+      POSTGRES_PASSWORD: nexus_owner_dev
+      POSTGRES_DB: nexus
+    ports: ["5544:5432"]
+    volumes:
+      - nexus-pg:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus_owner -d nexus"]
+      interval: 3s
+      retries: 20
+
+volumes:
+  nexus-pg:
