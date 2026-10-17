@@ -6,6 +6,7 @@ distinct values (used to check whether a suggested join really matches).
 Every query is built here or in the connector, never from user text.
 """
 
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
@@ -56,6 +57,27 @@ def clean(exc: Exception) -> str:
     """A driver error's first line, without anything from the configuration."""
     text = str(exc).strip()
     return (text.splitlines()[0] if text else exc.__class__.__name__)[:300]
+
+
+def _patterns(value: str | None) -> list[re.Pattern]:
+    out = []
+    for part in (value or "").split(","):
+        part = part.strip()
+        if part:
+            try:
+                out.append(re.compile(part, re.IGNORECASE))
+            except re.error as exc:
+                raise ConnectorError(f"The schema filter {part!r} is not a valid pattern: {exc}") from exc
+    return out
+
+
+def schema_allowed(settings: dict, schema: str) -> bool:
+    """Apply a connection's schema filters (comma-separated regular expressions,
+    matched anywhere in the name, as OpenMetadata's filter patterns are)."""
+    include, exclude = _patterns(settings.get("schemas_include")), _patterns(settings.get("schemas_exclude"))
+    if include and not any(p.search(schema) for p in include):
+        return False
+    return not any(p.search(schema) for p in exclude)
 
 
 # Warehouse type names collapsed to a small shared vocabulary, so a column can be
@@ -137,9 +159,12 @@ class Warehouse(ABC):
     def table_ref(self, database: str, schema: str, name: str) -> exp.Table:
         return exp.table_(name, db=schema, catalog=database, quoted=True)
 
+    def column_ref(self, column: str) -> exp.Column:
+        return exp.column(column, quoted=True)
+
     def sample(self, database: str, schema: str, table: str, column: str, limit: int = 1000) -> list[Any]:
         """Up to `limit` distinct non-null values of one column."""
-        col = exp.column(column, quoted=True)
+        col = self.column_ref(column)
         sql = (exp.select(col).distinct().from_(self.table_ref(database, schema, table))
                .where(exp.Not(this=exp.Is(this=col.copy(), expression=exp.Null()))).limit(limit)
                .sql(dialect=self.dialect))
@@ -154,7 +179,7 @@ class Warehouse(ABC):
 
     def distinct_ratio(self, database: str, schema: str, table: str, column: str, limit: int = 100_000) -> float:
         """Distinct values / non-null rows over at most `limit` rows: near 1.0 means the column is a key."""
-        col = exp.column(column, quoted=True)
+        col = self.column_ref(column)
         inner = (exp.select(exp.alias_(col, "v")).from_(self.table_ref(database, schema, table))
                  .where(exp.Not(this=exp.Is(this=col.copy(), expression=exp.Null()))).limit(limit))
         sql = exp.select("COUNT(DISTINCT v)", "COUNT(*)").from_(inner.subquery("s")).sql(dialect=self.dialect)
@@ -168,7 +193,7 @@ def _literal(value: Any, numeric: bool) -> exp.Expression:
 
 def count_matching_sql(wh: "Warehouse", database: str, schema: str, table: str, column: str,
                        values: list[Any], numeric: bool) -> str:
-    col = exp.column(column, quoted=True)
+    col = wh.column_ref(column)
     return (exp.select(exp.Count(this=exp.Distinct(expressions=[col])))
             .from_(wh.table_ref(database, schema, table))
             .where(exp.In(this=col.copy(), expressions=[_literal(v, numeric) for v in values]))

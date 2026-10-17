@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Cable, Database, Loader2, Plus, RefreshCw, Snowflake, Trash2, Zap } from "lucide-react";
+import {
+  ArrowRight, BarChart3, Boxes, Building2, Cable, Database, Layers, Loader2, Plus, RefreshCw, Server, Snowflake, Trash2,
+  Warehouse, Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Card } from "@/components/ui/card";
@@ -27,8 +30,15 @@ const COLLECT: Record<Connection["collect_status"], { label: string; tone: Tone;
 // Each warehouse gets its own mark, so a list of connections scans at a glance.
 const KIND_STYLE: Record<string, { icon: typeof Database; tile: string }> = {
   snowflake: { icon: Snowflake, tile: "bg-info-soft text-info-soft-foreground" },
-  databricks: { icon: Database, tile: "bg-danger-soft text-danger-soft-foreground" },
+  databricks: { icon: Layers, tile: "bg-danger-soft text-danger-soft-foreground" },
+  sqlserver: { icon: Server, tile: "bg-primary-soft text-primary" },
+  oracle: { icon: Database, tile: "bg-danger-soft text-danger-soft-foreground" },
+  bigquery: { icon: BarChart3, tile: "bg-info-soft text-info-soft-foreground" },
+  redshift: { icon: Warehouse, tile: "bg-warning-soft text-warning-soft-foreground" },
+  saphana: { icon: Boxes, tile: "bg-primary-soft text-primary" },
   postgres: { icon: Database, tile: "bg-primary-soft text-primary" },
+  teradata: { icon: Building2, tile: "bg-warning-soft text-warning-soft-foreground" },
+  mysql: { icon: Database, tile: "bg-success-soft text-success-soft-foreground" },
 };
 
 export default function Connections() {
@@ -158,17 +168,17 @@ export default function Connections() {
         </Link>
       )}
 
-      <Dialog ref={dialog} title="Add a connection" description="Credentials are encrypted and never shown again.">
+      <Dialog ref={dialog} wide title="Add a connection" description="Credentials are encrypted and never shown again.">
         <form className="space-y-4" onSubmit={add}>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {specs.map((s) => {
               const st = KIND_STYLE[s.kind] ?? KIND_STYLE.postgres;
               const I = st.icon;
               return (
                 <button type="button" key={s.kind} onClick={() => { setKind(s.kind); setValues({}); }}
-                  className={cn("flex flex-col items-center gap-1.5 rounded-lg border px-2 py-3 text-caption font-medium transition-colors",
+                  className={cn("flex flex-col items-center gap-1.5 rounded-lg border px-1.5 py-2.5 text-center text-caption font-medium leading-tight transition-colors",
                     kind === s.kind ? "border-primary bg-primary-soft text-primary" : "border-border text-muted-foreground hover:bg-muted/50")}>
-                  <span className={cn("rounded-md p-1.5", st.tile)}><I className="size-4" /></span>{s.name}
+                  <span className={cn("rounded-md p-1.5", st.tile)}><I className="size-4" /></span>{s.name.split(" / ")[0]}
                 </button>
               );
             })}

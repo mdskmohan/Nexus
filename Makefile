@@ -1,14 +1,18 @@
-.PHONY: help up down migrate dev api worker web test lint build
+.PHONY: help up down warehouses migrate dev api worker web test lint build
 
 help:
 	@echo "make up       start Postgres"
 	@echo "make dev      start everything (database, API, worker, web) — open http://localhost:3100"
 	@echo "make test     run the backend test suite against a real Postgres"
+	@echo "make warehouses  start real MySQL, SQL Server and Oracle for connector tests"
 	@echo "make lint     lint the backend"
 	@echo "make build    production build of the web app"
 
 up:
 	docker compose -f infra/docker-compose.yml up -d --wait postgres
+
+warehouses:
+	docker compose -f infra/docker-compose.yml --profile warehouses up -d --wait mysql sqlserver oracle
 
 down:
 	docker compose -f infra/docker-compose.yml down

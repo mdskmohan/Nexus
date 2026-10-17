@@ -47,7 +47,8 @@ class Spec:
         """Plain problems with a configuration, empty if it is complete."""
         out = []
         for f in self.fields:
-            value = (secrets if f.secret else settings).get(f.name)
+            # A field with a default is satisfied by it (the connector uses the default when blank).
+            value = (secrets if f.secret else settings).get(f.name) or f.default
             if f.required and not value:
                 out.append(f"{f.label} is required.")
             elif value and f.options and value not in f.options:
@@ -60,6 +61,15 @@ class Spec:
                 "fields": [{"name": f.name, "label": f.label, "required": f.required, "secret": f.secret,
                             "multiline": f.multiline, "help": f.help, "placeholder": f.placeholder,
                             "default": f.default, "options": list(f.options)} for f in self.fields]}
+
+
+# Every connection can be narrowed to some schemas, like OpenMetadata's schema filter pattern.
+FILTERS = (
+    Field("schemas_include", "Only these schemas", required=False, placeholder="^sales$, ^finance_",
+          help="Comma-separated patterns (regular expressions). Leave blank for every schema the user can see."),
+    Field("schemas_exclude", "Skip these schemas", required=False, placeholder="^tmp_, _staging$",
+          help="Comma-separated patterns. Applied after the schemas above."),
+)
 
 
 @dataclass(frozen=True, slots=True)

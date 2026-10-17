@@ -95,7 +95,7 @@ queued ──► running ──► succeeded
 
 ### Connections and the knowledge graph (M1)
 
-A **connection** is one warehouse (Snowflake, Databricks, or Postgres). Its secret settings are encrypted
+A **connection** is one warehouse: Snowflake, Databricks, SQL Server (and Azure SQL, Synapse, Fabric), Oracle, BigQuery, Redshift, SAP HANA, PostgreSQL, Teradata or MySQL ([connectors](connectors.md)). Its secret settings are encrypted
 like AI keys and never returned. Nexus reads it with read-only queries: tables, columns, comments and
 declared foreign keys.
 
@@ -148,7 +148,7 @@ services/api/        FastAPI API, worker, migrations and tests
   src/nexus/
     ai/              model adapters, registry, encrypted keys
     api/             HTTP routes
-    connectors/      Snowflake, Databricks and Postgres: read-only metadata and samples
+    connectors/      ten platforms: read-only metadata and samples (connectors.md)
     graph/           knowledge graph: collection, join suggestion, metrics, review, AGE projection
     runtime/         durable runs (and, from M2, the agent runtime)
 infra/               local Postgres (with Apache AGE)

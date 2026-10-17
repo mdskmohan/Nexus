@@ -19,12 +19,13 @@ OpenAI-compatible and on-premises) with encrypted keys, durable runs that pause 
 without repeating work, stopping runs, recovery after a crash, and an append-only audit trail. A web app with
 sign-in, an approvals inbox and workspace settings. 30 automated tests pass against a real Postgres.
 
-**M1, connections and the knowledge graph, is mostly built:** Snowflake, Databricks and Postgres
-connections with encrypted credentials; tables, columns and declared keys read into the graph as proposals;
+**M1, connections and the knowledge graph, is mostly built:** connections to the ten platforms enterprises
+use most ([connectors](docs/connectors.md)), with encrypted credentials; MySQL, SQL Server, Oracle and
+Postgres proven against real servers; tables, columns and declared keys read into the graph as proposals;
 join suggestions checked against real data, including joins across warehouses; metrics and entities; steward
-review with graph versions; join paths in Apache AGE. 40 tests pass. Still open: semantic views, lineage,
-query history, per-user warehouse permissions, and testing the Snowflake and Databricks connectors against
-real accounts. See the [build plan](docs/build-plan.md).
+review with graph versions; join paths in Apache AGE. 53 tests pass. Still open: semantic views, lineage,
+query history, per-user warehouse permissions, and testing Snowflake, Databricks, BigQuery, Redshift,
+SAP HANA and Teradata against real accounts. See the [build plan](docs/build-plan.md).
 
 ## Quick start
 

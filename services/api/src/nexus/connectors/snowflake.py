@@ -4,7 +4,7 @@ Not yet exercised against a real Snowflake account.
 """
 
 from nexus.connectors.base import ColumnMeta, ForeignKey, TableMeta, Warehouse, normalise_type
-from nexus.connectors.spec import Field, Spec, TestResult
+from nexus.connectors.spec import FILTERS, Field, Spec, TestResult
 
 _COLUMNS = """
 SELECT c.TABLE_CATALOG, c.TABLE_SCHEMA, c.TABLE_NAME, t.TABLE_TYPE, c.COLUMN_NAME, c.DATA_TYPE, c.IS_NULLABLE,
@@ -32,6 +32,7 @@ SPEC = Spec(
         Field("warehouse", "Warehouse", placeholder="COMPUTE_WH"),
         Field("database", "Database", placeholder="ANALYTICS"),
         Field("role", "Role", required=False, placeholder="NEXUS_READONLY"),
+        *FILTERS,
     ),
 )
 

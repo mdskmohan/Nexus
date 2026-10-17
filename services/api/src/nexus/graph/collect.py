@@ -12,6 +12,7 @@ import logging
 
 from nexus import connections, jobs
 from nexus.connectors import ConnectorError
+from nexus.connectors.base import schema_allowed
 from nexus.db import row, rows, scalar, tenant
 
 log = logging.getLogger("nexus.collect")
@@ -33,7 +34,8 @@ def collect(workspace_id: str, payload: dict) -> None:
                c=connection_id)
     try:
         with connections.open_warehouse(workspace_id, conn) as wh:
-            tables = wh.tables()
+            # Connectors that read the whole catalogue in one query filter here instead.
+            tables = [t for t in wh.tables() if schema_allowed(conn["config"], t.schema)]
             try:
                 foreign_keys = wh.foreign_keys()
             except ConnectorError as exc:  # keys are a bonus; their absence must not fail collection

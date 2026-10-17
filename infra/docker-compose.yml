@@ -17,5 +17,41 @@ services:
       interval: 3s
       retries: 20
 
+  # Real warehouses for testing connectors locally: `make warehouses`.
+  mysql:
+    profiles: ["warehouses"]
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: nexus_root_dev
+    ports: ["3307:3306"]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -pnexus_root_dev --silent"]
+      interval: 3s
+      retries: 40
+
+  sqlserver:
+    profiles: ["warehouses"]
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Nexus_dev_2026!"
+    ports: ["1434:1433"]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Nexus_dev_2026!' -Q 'SELECT 1' || exit 1"]
+      interval: 5s
+      retries: 40
+
+  oracle:
+    profiles: ["warehouses"]
+    image: gvenzl/oracle-free:23-slim-faststart
+    environment:
+      ORACLE_PASSWORD: nexus_oracle_dev
+    ports: ["1522:1521"]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 5s
+      retries: 60
+
 volumes:
   nexus-pg:

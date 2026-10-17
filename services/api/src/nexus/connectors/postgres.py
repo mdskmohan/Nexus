@@ -2,7 +2,7 @@
 and tests as a stand-in warehouse, so everything runs without cloud accounts."""
 
 from nexus.connectors.base import ColumnMeta, ConnectorError, ForeignKey, TableMeta, Warehouse, normalise_type
-from nexus.connectors.spec import Field, Spec, TestResult
+from nexus.connectors.spec import FILTERS, Field, Spec, TestResult
 
 SYSTEM_SCHEMAS = ["pg_catalog", "information_schema", "pg_toast", "ag_catalog"]
 
@@ -45,6 +45,7 @@ SPEC = Spec(
         Field("password", "Password", secret=True),
         Field("sslmode", "SSL mode", required=False, default="prefer",
               options=("disable", "prefer", "require", "verify-ca", "verify-full")),
+        *FILTERS,
     ),
 )
 

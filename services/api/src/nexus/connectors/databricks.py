@@ -5,7 +5,7 @@ Not yet exercised against a real Databricks workspace.
 """
 
 from nexus.connectors.base import ColumnMeta, ForeignKey, TableMeta, Warehouse, normalise_type
-from nexus.connectors.spec import Field, Spec, TestResult
+from nexus.connectors.spec import FILTERS, Field, Spec, TestResult
 
 _SYSTEM_CATALOGS = "('system', '__databricks_internal', 'samples')"
 
@@ -47,6 +47,7 @@ SPEC = Spec(
               help="A token for a service principal with read access."),
         Field("catalog", "Catalog", required=False, placeholder="main",
               help="Leave blank to read every catalog through Unity Catalog."),
+        *FILTERS,
     ),
 )
 

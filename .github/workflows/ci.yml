@@ -18,6 +18,30 @@ jobs:
         ports: ["5544:5432"]
         options: >-
           --health-cmd "pg_isready -U nexus_owner -d nexus" --health-interval 3s --health-retries 20
+      # Real warehouses for the connector tests (tests/test_connectors.py).
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: nexus_root_dev
+        ports: ["3307:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -pnexus_root_dev --silent" --health-interval 3s --health-retries 40
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Nexus_dev_2026!"
+        ports: ["1434:1433"]
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Nexus_dev_2026!' -Q 'SELECT 1'"
+          --health-interval 5s --health-retries 40
+      oracle:
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          ORACLE_PASSWORD: nexus_oracle_dev
+        ports: ["1522:1521"]
+        options: >-
+          --health-cmd healthcheck.sh --health-interval 5s --health-retries 60
     defaults:
       run:
         working-directory: services/api
