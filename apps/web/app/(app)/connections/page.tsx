@@ -2,16 +2,33 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Cable, Database, Loader2, Plus, RefreshCw, Snowflake, Trash2, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Card } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatusPill, type Tone } from "@/components/ui/status-pill";
 import { api, can, type Connection, type ConnectorSpec } from "@/lib/api";
 import { when } from "@/lib/format";
 import { useMe } from "@/lib/me";
+import { cn } from "@/lib/utils";
 
-const COLLECT: Record<Connection["collect_status"], { label: string; tone: string }> = {
-  never: { label: "Not read yet", tone: "pill" },
-  queued: { label: "Waiting to read", tone: "pill pill-brand" },
-  running: { label: "Reading", tone: "pill pill-brand" },
-  done: { label: "Read", tone: "pill pill-ok" },
-  failed: { label: "Could not read", tone: "pill pill-bad" },
+const COLLECT: Record<Connection["collect_status"], { label: string; tone: Tone; pulse?: boolean }> = {
+  never: { label: "Not read yet", tone: "neutral" },
+  queued: { label: "Waiting to read", tone: "info", pulse: true },
+  running: { label: "Reading", tone: "info", pulse: true },
+  done: { label: "Read", tone: "success" },
+  failed: { label: "Could not read", tone: "danger" },
+};
+
+// Each warehouse gets its own mark, so a list of connections scans at a glance.
+const KIND_STYLE: Record<string, { icon: typeof Database; tile: string }> = {
+  snowflake: { icon: Snowflake, tile: "bg-info-soft text-info-soft-foreground" },
+  databricks: { icon: Database, tile: "bg-danger-soft text-danger-soft-foreground" },
+  postgres: { icon: Database, tile: "bg-primary-soft text-primary" },
 };
 
 export default function Connections() {
@@ -75,90 +92,110 @@ export default function Connections() {
   }
 
   return (
-    <div className="stack" style={{ gap: 24 }}>
-      <div className="page-head" style={{ marginBottom: 0 }}>
-        <div>
-          <h1>Connections</h1>
-          <p>Nexus reads tables and columns from these warehouses, only ever with read-only queries.</p>
-        </div>
-        {manage && <button className="btn-primary" onClick={open}>Add a connection</button>}
-      </div>
+    <>
+      <PageHeader title="Connections" description="Warehouses Nexus reads, only ever with read-only queries."
+        actions={manage && <Button onClick={open}><Plus />Add a connection</Button>} />
 
-      {conns === null ? <div className="empty">Loading…</div> : conns.length === 0 ? (
-        <div className="card card-pad stack">
-          <p className="muted">No connections yet.</p>
-          <p className="faint">To try Nexus without a warehouse, run <code>cd services/api && uv run nexus-seed-demo --email {me.user.email}</code>. It creates two demo warehouses and connects them here.</p>
-        </div>
-      ) : conns.map((c) => {
-        const status = COLLECT[c.collect_status];
-        const result = tests[c.id];
-        return (
-          <div key={c.id} className="card card-pad stack">
-            <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>{c.label}</div>
-                <div className="faint">
-                  {specs.find((s) => s.kind === c.kind)?.name ?? c.kind}
-                  {c.config.database ? ` · ${c.config.database}` : ""}{c.config.host ? ` · ${c.config.host}` : ""}
-                  {!c.verified && " · not yet tested against a real account"}
+      {conns === null ? null : conns.length === 0 ? (
+        <Card>
+          <EmptyState icon={Cable} title="No connections yet"
+            description={<>Connect Snowflake, Databricks or Postgres. To try Nexus without a warehouse, run <code>uv run nexus-seed-demo --email {me.user.email}</code> in <code>services/api</code>.</>}
+            action={manage && <Button onClick={open}><Plus />Add a connection</Button>} />
+        </Card>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {conns.map((c) => {
+            const status = COLLECT[c.collect_status];
+            const result = tests[c.id];
+            const style = KIND_STYLE[c.kind] ?? KIND_STYLE.postgres;
+            const Icon = style.icon;
+            const reading = c.collect_status === "queued" || c.collect_status === "running";
+            const testOk = result ? result.ok : c.last_test_ok;
+            const testMsg = result ? result.message : c.last_test_msg;
+            return (
+              <Card key={c.id} className="flex flex-col">
+                <div className="flex items-start justify-between gap-3 px-5 pt-5">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className={cn("rounded-lg p-2.5", style.tile)}><Icon className="size-5" /></div>
+                    <div className="min-w-0">
+                      <p className="truncate text-h2 text-foreground">{c.label}</p>
+                      <p className="truncate text-caption text-muted-foreground">
+                        {specs.find((s) => s.kind === c.kind)?.name ?? c.kind}
+                        {c.config.database ? ` · ${c.config.database}` : ""}{c.config.host ? ` · ${c.config.host}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <StatusPill tone={status.tone} pulse={status.pulse} dot={!status.pulse}>{status.label}</StatusPill>
                 </div>
-              </div>
-              <span className={status.tone}>{status.label}</span>
-            </div>
-            {c.collect_msg && <p className="muted">{c.collect_msg}{c.collected_at ? ` (${when(c.collected_at)})` : ""}</p>}
-            {(result || c.last_test_msg) && (
-              <div className={`notice ${(result ? result.ok : c.last_test_ok) ? "notice-ok" : "notice-bad"}`}>
-                <p>{result ? result.message : c.last_test_msg}</p>
-              </div>
-            )}
-            {manage && (
-              <div className="row" style={{ justifyContent: "flex-end" }}>
-                <button className="btn-quiet" onClick={() => remove(c)}>Remove</button>
-                <button className="btn-quiet" disabled={busy === c.id} onClick={() => test(c)}>{busy === c.id ? "Testing…" : "Test connection"}</button>
-                <button className="btn-primary" disabled={c.collect_status === "queued" || c.collect_status === "running"}
-                  onClick={() => collect(c)}>Read tables and columns</button>
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {conns && conns.some((c) => c.collect_status === "done") && (
-        <p className="muted">Everything Nexus reads arrives as a proposal. <Link href="/knowledge">Review it in the knowledge graph.</Link></p>
+                <div className="flex-1 space-y-3 px-5 py-4">
+                  {c.collect_msg && (
+                    <p className="text-body text-muted-foreground">{c.collect_msg}{c.collected_at ? <span className="text-caption"> · {when(c.collected_at)}</span> : ""}</p>
+                  )}
+                  {testMsg && <Callout tone={testOk ? "success" : "danger"}>{testMsg}</Callout>}
+                  {!c.verified && <p className="text-caption text-muted-foreground">This connector has not yet been tested against a real account.</p>}
+                </div>
+                {manage && (
+                  <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/30 px-5 py-3">
+                    <Button variant="ghost" size="sm" className="mr-auto hover:text-danger" onClick={() => remove(c)}><Trash2 />Remove</Button>
+                    <Button variant="outline" size="sm" disabled={busy === c.id} onClick={() => test(c)}>
+                      {busy === c.id ? <Loader2 className="animate-spin" /> : <Zap />}Test
+                    </Button>
+                    <Button size="sm" disabled={reading} onClick={() => collect(c)}>
+                      <RefreshCw className={cn(reading && "animate-spin")} />{reading ? "Reading…" : "Read tables"}
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
       )}
 
-      <dialog ref={dialog}>
-        <form className="card-pad stack" onSubmit={add}>
-          <h2>Add a connection</h2>
-          <label>Kind
-            <select value={kind} onChange={(e) => { setKind(e.target.value); setValues({}); }}>
-              {specs.map((s) => <option key={s.kind} value={s.kind}>{s.name}</option>)}
-            </select>
-            {spec && <span className="hint">{spec.description}</span>}
-          </label>
-          <label>Name<input required value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Sales warehouse" /></label>
+      {conns && conns.some((c) => c.collect_status === "done") && (
+        <Link href="/knowledge" className="group flex items-center justify-between rounded-lg border border-primary/20 bg-primary-soft px-5 py-4 text-primary">
+          <span className="text-body font-medium">Everything Nexus reads arrives as a proposal. Review it in the knowledge graph.</span>
+          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      )}
+
+      <Dialog ref={dialog} title="Add a connection" description="Credentials are encrypted and never shown again.">
+        <form className="space-y-4" onSubmit={add}>
+          <div className="grid grid-cols-3 gap-2">
+            {specs.map((s) => {
+              const st = KIND_STYLE[s.kind] ?? KIND_STYLE.postgres;
+              const I = st.icon;
+              return (
+                <button type="button" key={s.kind} onClick={() => { setKind(s.kind); setValues({}); }}
+                  className={cn("flex flex-col items-center gap-1.5 rounded-lg border px-2 py-3 text-caption font-medium transition-colors",
+                    kind === s.kind ? "border-primary bg-primary-soft text-primary" : "border-border text-muted-foreground hover:bg-muted/50")}>
+                  <span className={cn("rounded-md p-1.5", st.tile)}><I className="size-4" /></span>{s.name}
+                </button>
+              );
+            })}
+          </div>
+          {spec && <p className="text-caption text-muted-foreground">{spec.description}</p>}
+          <Field label="Name"><Input required value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Sales warehouse" /></Field>
           {spec?.fields.map((f) => (
-            <label key={f.name}>{f.label}{!f.required && <span className="hint"> Optional.</span>}
+            <Field key={f.name} label={f.label} optional={!f.required} hint={f.help || undefined}>
               {f.options.length ? (
-                <select value={values[f.name] ?? f.default} onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}>
+                <Select value={values[f.name] ?? f.default} onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}>
                   {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
+                </Select>
               ) : f.multiline ? (
-                <textarea rows={4} value={values[f.name] ?? ""} onChange={(e) => setValues({ ...values, [f.name]: e.target.value })} />
+                <Textarea rows={4} className="font-mono text-caption" value={values[f.name] ?? ""} onChange={(e) => setValues({ ...values, [f.name]: e.target.value })} />
               ) : (
-                <input type={f.secret ? "password" : "text"} required={f.required} placeholder={f.placeholder || f.default}
+                <Input type={f.secret ? "password" : "text"} required={f.required} placeholder={f.placeholder || f.default}
                   autoComplete="off" value={values[f.name] ?? ""} onChange={(e) => setValues({ ...values, [f.name]: e.target.value })} />
               )}
-              {f.help && <span className="hint">{f.help}</span>}
-            </label>
+            </Field>
           ))}
-          {error && <div className="notice notice-bad"><p>{error}</p></div>}
-          <div className="row" style={{ justifyContent: "flex-end" }}>
-            <button type="button" className="btn-quiet" onClick={() => dialog.current?.close()}>Cancel</button>
-            <button className="btn-primary">Add</button>
+          {error && <Callout tone="danger">{error}</Callout>}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="ghost" onClick={() => dialog.current?.close()}>Cancel</Button>
+            <Button>Add connection</Button>
           </div>
         </form>
-      </dialog>
-    </div>
+      </Dialog>
+    </>
   );
 }

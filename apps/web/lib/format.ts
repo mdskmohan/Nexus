@@ -1,5 +1,3 @@
-import type { RunStatus } from "./api";
-
 export function when(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -20,14 +18,6 @@ export function money(v: string | number | undefined): string {
   return `$${Number(v ?? 0).toFixed(2)}`;
 }
 
-export const RUN_STATUS: Record<RunStatus, { label: string; tone: string }> = {
-  queued: { label: "Waiting to start", tone: "pill" },
-  running: { label: "Working", tone: "pill pill-brand" },
-  waiting: { label: "Waiting for a person", tone: "pill pill-warn" },
-  succeeded: { label: "Done", tone: "pill pill-ok" },
-  failed: { label: "Did not finish", tone: "pill pill-bad" },
-  cancelled: { label: "Stopped", tone: "pill" },
-};
 
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
