@@ -31,8 +31,8 @@ class SqlServer(SqlAlchemyWarehouse):
         kind="sqlserver",
         verified=True,
         name="SQL Server / Azure SQL / Fabric",
-        description="Microsoft SQL Server, Azure SQL Database, Azure Synapse dedicated pools, and Fabric "
-                    "Warehouse or Lakehouse SQL endpoints.",
+        description="SQL Server 2016 or later, Azure SQL Database and Managed Instance, Synapse dedicated pools and "
+                    "Microsoft Fabric. Signs in with a SQL login or Microsoft Entra ID.",
         docs_url="https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server",
         fields=(
             Field("host", "Server", placeholder="myserver.database.windows.net"),
@@ -91,7 +91,8 @@ class Oracle(SqlAlchemyWarehouse):
         kind="oracle",
         verified=True,
         name="Oracle",
-        description="Oracle Database 12c or later, including Autonomous Database. No Oracle client needed.",
+        description="Oracle Database 12c or later, on premises, Exadata or Autonomous Database. Connects directly by "
+                    "service name or SID; no Oracle client to install.",
         docs_url="https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html",
         fields=(
             Field("host", "Host", placeholder="db.internal"),
@@ -145,7 +146,8 @@ class MySql(SqlAlchemyWarehouse):
         kind="mysql",
         verified=True,
         name="MySQL",
-        description="MySQL 5.7 or later, MariaDB, Amazon Aurora MySQL and Azure Database for MySQL.",
+        description="MySQL 5.7 or later, MariaDB, Amazon RDS and Aurora MySQL, and Azure Database for MySQL. Each "
+                    "database is read as a schema.",
         fields=(
             Field("host", "Host", placeholder="db.internal"),
             Field("port", "Port", default="3306"),
@@ -191,7 +193,8 @@ class BigQuery(SqlAlchemyWarehouse):
     spec = Spec(
         kind="bigquery",
         name="Google BigQuery",
-        description="One Google Cloud project. Datasets are read as schemas.",
+        description="Google BigQuery. Reads every dataset in one Google Cloud project as a schema, signing in with a "
+                    "service account key.",
         docs_url="https://cloud.google.com/bigquery/docs/authentication/service-account-file",
         fields=(
             Field("project_id", "Project ID", placeholder="acme-analytics"),
@@ -233,7 +236,8 @@ class Redshift(SqlAlchemyWarehouse):
     spec = Spec(
         kind="redshift",
         name="Amazon Redshift",
-        description="A Redshift cluster or Redshift Serverless workgroup.",
+        description="Amazon Redshift provisioned clusters and Redshift Serverless workgroups. Signs in with a database "
+                    "user over SSL.",
         docs_url="https://docs.aws.amazon.com/redshift/latest/mgmt/python-configuration-options.html",
         fields=(
             Field("host", "Endpoint", placeholder="acme.abc123.eu-west-1.redshift.amazonaws.com"),
@@ -275,7 +279,8 @@ class SapHana(SqlAlchemyWarehouse):
     spec = Spec(
         kind="saphana",
         name="SAP HANA",
-        description="SAP HANA (on premises or SAP HANA Cloud), including the HANA database under SAP Datasphere.",
+        description="SAP HANA Cloud and SAP HANA 2.0 on premises, including the database under SAP Datasphere. "
+                    "Signs in with a database user over TLS.",
         docs_url="https://help.sap.com/docs/SAP_HANA_CLIENT",
         fields=(
             Field("host", "Host", placeholder="abc123.hana.prod-eu10.hanacloud.ondemand.com"),
@@ -318,7 +323,8 @@ class Teradata(SqlAlchemyWarehouse):
     spec = Spec(
         kind="teradata",
         name="Teradata",
-        description="Teradata Vantage (on premises, VantageCloud Lake or Enterprise). Databases are read as schemas.",
+        description="Teradata Vantage on premises, VantageCloud Enterprise and Lake. Reads each database as a schema; "
+                    "signs in with TD2, LDAP or Kerberos.",
         docs_url="https://github.com/Teradata/python-driver#ConnectionParameters",
         fields=(
             Field("host", "Host", placeholder="tdprod.internal"),

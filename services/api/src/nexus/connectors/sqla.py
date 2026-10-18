@@ -135,7 +135,9 @@ class SqlAlchemyWarehouse(Warehouse):
     def tables(self) -> list[TableMeta]:
         insp = inspect(self._conn)
         out: list[TableMeta] = []
-        for schema in self.schemas():
+        schemas = self.schemas()
+        for done, schema in enumerate(schemas, 1):
+            before = len(out)
             try:
                 tables = set(insp.get_table_names(schema=schema))
                 try:
@@ -160,6 +162,8 @@ class SqlAlchemyWarehouse(Warehouse):
                         for i, c in enumerate(cols)),
                     comment=(comments.get(name) or {}).get("text") or "",
                 ))
+            if self.on_schema:
+                self.on_schema(schema, done, len(schemas), len(out) - before)
         return out
 
     def _multi(self, multi_fn, single_fn, schema: str, names: set[str], default=None) -> dict[str, Any]:

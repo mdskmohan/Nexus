@@ -87,7 +87,30 @@ export type Connection = {
   last_test_ok: boolean | null; last_test_at: string | null; last_test_msg: string | null;
   collect_status: "never" | "queued" | "running" | "done" | "failed"; collected_at: string | null; collect_msg: string | null;
   created_at: string;
+  last_run: CollectRun | null;
+  last_success: { id: string; stats: CollectStats; finished_at: string } | null;
 };
+
+export type CollectRunStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+export type CollectPhase = "queued" | "connect" | "discover" | "keys" | "graph" | "joins" | "done";
+export type CollectStats = Partial<Record<
+  "schemas" | "schemas_read" | "schemas_total" | "tables" | "views" | "columns" | "foreign_keys" | "tables_saved"
+  | "new_tables" | "known_tables" | "removed_tables" | "joins_suggested" | "seconds", number>>;
+
+export type CollectRun = {
+  id: string; connection_id: string; trigger: "manual" | "retry" | "setup" | "schedule";
+  status: CollectRunStatus; phase: CollectPhase; progress: number; stats: CollectStats;
+  error: string | null; error_kind: string | null; hint: string | null; cancel_requested: boolean;
+  created_at: string; started_at: string | null; finished_at: string | null; updated_at: string;
+  connection_label?: string; connection_kind?: string; requested_by_name?: string | null;
+};
+
+export type RunLogLine = {
+  id: number; at: string; level: "info" | "success" | "warning" | "error"; message: string;
+  data: Record<string, unknown> | null;
+};
+
+export type RunsSummary = { active: number; succeeded_24h: number; failed_24h: number; total: number };
 
 export type ItemKind = "table" | "column" | "join" | "entity" | "metric";
 export type ItemStatus = "proposed" | "approved" | "rejected" | "deprecated";

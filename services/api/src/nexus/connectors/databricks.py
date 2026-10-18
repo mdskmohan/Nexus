@@ -36,7 +36,7 @@ SELECT k.table_catalog, k.table_schema, k.table_name, k.column_name,
 SPEC = Spec(
     kind="databricks",
     name="Databricks",
-    description="A Databricks SQL warehouse, reading Unity Catalog.",
+    description="Databricks SQL warehouses on Unity Catalog. Reads catalogs, schemas, tables and views with a personal access token or service principal token.",
     docs_url="https://docs.databricks.com/en/integrations/compute-details.html",
     fields=(
         Field("server_hostname", "Workspace hostname", placeholder="dbc-a1b2c3d4-e5f6.cloud.databricks.com",

@@ -14,6 +14,6 @@ HANDLERS = {**engine.HANDLERS, collect.JOB_KIND: collect.collect, joins.JOB_KIND
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
-    closed = close_orphaned_runs()
+    closed = close_orphaned_runs() + collect.close_orphaned_runs()
     log.info("worker started%s", f"; closed {closed} interrupted run(s)" if closed else "")
     jobs.work(HANDLERS)

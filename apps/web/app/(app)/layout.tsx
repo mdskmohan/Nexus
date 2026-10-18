@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { RunWatcher } from "@/components/connections/run-watcher";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { Callout } from "@/components/ui/callout";
+import { Toaster } from "@/components/ui/toast";
 import { api, ApiError, can, type HumanRequest, type Me } from "@/lib/api";
-import { MeContext } from "@/lib/me";
+import { CrumbProvider } from "@/lib/crumbs";
+import { MeContext, RefreshMeContext } from "@/lib/me";
 
 const COLLAPSED_KEY = "nexus.sidebar.collapsed";
 
@@ -47,6 +50,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggle]);
 
+  const refreshMe = useCallback(() => api.get<Me>("/me").then(setMe), []);
+
   async function signOut() {
     await api.post("/auth/logout");
     router.replace("/signin");
@@ -65,22 +70,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const width = collapsed ? 56 : 232;
   return (
     <MeContext.Provider value={me}>
-      <a href="#main" className="skip-link">Skip to content</a>
-      <Sidebar me={me} collapsed={collapsed} onToggle={toggle} onSignOut={signOut} waiting={waiting} />
-      <Topbar me={me} left={width} onSignOut={signOut} />
-      <main id="main" tabIndex={-1} className="min-h-screen pt-14 transition-[margin] duration-200" style={{ marginLeft: width }}>
-        <div className="mx-auto w-full max-w-6xl space-y-6 px-6 py-6 animate-fade-in">
-          {!me.model_configured && (
-            <Callout tone="warning" title="AI is not connected yet.">
-              Agents need an AI model.{" "}
-              {can(me, "manage_ai")
-                ? <Link href="/settings" className="font-medium underline underline-offset-2">Connect one in Settings</Link>
-                : "Ask your administrator to connect one."}
-            </Callout>
-          )}
-          {children}
-        </div>
-      </main>
+      <RefreshMeContext.Provider value={refreshMe}>
+        <CrumbProvider>
+          <Toaster>
+            {(can(me, "manage_connections") || can(me, "approve_graph") || can(me, "build_agents")) && <RunWatcher />}
+            <a href="#main" className="skip-link">Skip to content</a>
+            <Sidebar me={me} collapsed={collapsed} onToggle={toggle} onSignOut={signOut} waiting={waiting} />
+            <Topbar me={me} left={width} onSignOut={signOut} />
+            <main id="main" tabIndex={-1} className="min-h-screen pt-14 transition-[margin] duration-200" style={{ marginLeft: width }}>
+              <div className="mx-auto w-full max-w-6xl space-y-6 px-6 py-6 animate-fade-in">
+                {!me.model_configured && (
+                  <Callout tone="warning" title="AI is not connected yet.">
+                    Agents need an AI model.{" "}
+                    {can(me, "manage_ai")
+                      ? <Link href="/settings?tab=ai" className="font-medium underline underline-offset-2">Connect one in Settings</Link>
+                      : "Ask your administrator to connect one."}
+                  </Callout>
+                )}
+                {children}
+              </div>
+            </main>
+          </Toaster>
+        </CrumbProvider>
+      </RefreshMeContext.Provider>
     </MeContext.Provider>
   );
 }

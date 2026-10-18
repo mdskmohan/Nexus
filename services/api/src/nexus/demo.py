@@ -113,10 +113,10 @@ def main() -> None:
     parser.add_argument("--email", required=True, help="a member of the workspace to add the connections to")
     args = parser.parse_args()
 
-    from nexus import audit, connections, jobs
+    from nexus import audit, connections
     from nexus.connectors.postgres import SPEC
     from nexus.db import row, scalar, tenant, unscoped
-    from nexus.graph.collect import JOB_KIND
+    from nexus.graph.collect import start_run
 
     with unscoped() as s:
         user = row(s, "SELECT * FROM auth_lookup(:e)", e=args.email)
@@ -137,7 +137,6 @@ def main() -> None:
                                        w=workspace_id, l=label, c=json.dumps(settings_),
                                        s=connections.seal(secrets_, workspace_id), u=user["id"])
                 audit.record(s, workspace_id, user["id"], "connection.added", "connection", connection_id, kind="postgres")
-            scalar(s, "UPDATE connections SET collect_status = 'queued' WHERE id = :c RETURNING id", c=connection_id)
-            jobs.enqueue(s, workspace_id, JOB_KIND, {"connection_id": str(connection_id)}, max_attempts=1)
+            start_run(s, workspace_id, str(connection_id), trigger="setup", user_id=str(user["id"]))
     print("Demo warehouses created and connected. The worker is reading them now;\n"
           "open http://localhost:3100/knowledge to review what it found.")

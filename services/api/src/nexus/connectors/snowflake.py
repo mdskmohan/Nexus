@@ -19,7 +19,7 @@ SELECT c.TABLE_CATALOG, c.TABLE_SCHEMA, c.TABLE_NAME, t.TABLE_TYPE, c.COLUMN_NAM
 SPEC = Spec(
     kind="snowflake",
     name="Snowflake",
-    description="One Snowflake database. Use a read-only role.",
+    description="Snowflake on AWS, Azure or Google Cloud. Reads one database through a warehouse you choose, signing in with key-pair or password and a read-only role.",
     docs_url="https://docs.snowflake.com/en/user-guide/admin-account-identifier",
     fields=(
         Field("account", "Account identifier", placeholder="xy12345.eu-west-1",

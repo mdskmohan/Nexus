@@ -35,7 +35,7 @@ SELECT current_database(), ns.nspname, cl.relname, att.attname, fns.nspname, fcl
 SPEC = Spec(
     kind="postgres",
     name="PostgreSQL",
-    description="A Postgres database or warehouse.",
+    description="PostgreSQL 12 or later, including Amazon RDS and Aurora, Azure Database, Google Cloud SQL, Supabase and Neon. Signs in with a read-only user over SSL.",
     verified=True,
     fields=(
         Field("host", "Host", placeholder="db.internal"),

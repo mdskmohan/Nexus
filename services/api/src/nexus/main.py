@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from nexus.api import ai, auth, connections, graph, runs
+from nexus.api import ai, auth, collect_runs, connections, graph, runs
 from nexus.config import settings
 from nexus.db import engine
 
@@ -17,6 +17,7 @@ app = FastAPI(title="Nexus API", version="0.1.0", docs_url="/api/docs", openapi_
 app.include_router(auth.router)
 app.include_router(runs.router)
 app.include_router(ai.router)
+app.include_router(collect_runs.router)  # before connections: /runs is not a connection id
 app.include_router(connections.router)
 app.include_router(graph.router)
 

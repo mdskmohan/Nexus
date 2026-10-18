@@ -50,6 +50,17 @@ class MemberUpdate(BaseModel):
     disabled: bool | None = None
 
 
+class ProfileUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    # Changing the password needs the current one, so a session left open cannot be used to take the account.
+    current_password: str | None = Field(default=None, max_length=200)
+    new_password: str | None = Field(default=None, min_length=MIN_PASSWORD_LENGTH, max_length=200)
+
+
+class WorkspaceUpdate(BaseModel):
+    name: str = Field(min_length=2, max_length=200)
+
+
 def _set_session(response: Response, user_id, workspace_id, role: str) -> None:
     response.set_cookie(
         COOKIE, issue_token(user_id, workspace_id, role), httponly=True, samesite="lax",
@@ -102,6 +113,29 @@ def me(who: Principal = Depends(principal), s: Session = Depends(db)) -> dict:
     return {"user": {"id": who.user_id, "name": who.name, "email": who.email, "role": who.role},
             "workspace": workspace, "permissions": sorted(PERMISSIONS[who.role]),
             "model_configured": bool(registry.available(who.workspace_id))}
+
+
+@router.patch("/me")
+def update_me(body: ProfileUpdate, who: Principal = Depends(principal), s: Session = Depends(db)) -> dict:
+    if body.new_password is not None:
+        current = row(s, "SELECT password_hash FROM users WHERE id = :u", u=who.user_id)
+        if not body.current_password or not verify_password(current["password_hash"], body.current_password):
+            raise HTTPException(400, "Your current password is not correct.")
+        scalar(s, "UPDATE users SET password_hash = :h WHERE id = :u RETURNING id",
+               h=hash_password(body.new_password), u=who.user_id)
+        audit.record(s, who.workspace_id, who.user_id, "user.password_changed", "user", who.user_id)
+    if body.name is not None and body.name.strip() != who.name:
+        scalar(s, "UPDATE users SET name = :n WHERE id = :u RETURNING id", n=body.name.strip(), u=who.user_id)
+        audit.record(s, who.workspace_id, who.user_id, "user.profile_updated", "user", who.user_id)
+    return {"ok": True}
+
+
+@router.patch("/workspace")
+def update_workspace(body: WorkspaceUpdate, who: Principal = Depends(require("manage_workspace")),
+                     s: Session = Depends(db)) -> dict:
+    scalar(s, "UPDATE workspaces SET name = :n WHERE id = :w RETURNING id", n=body.name.strip(), w=who.workspace_id)
+    audit.record(s, who.workspace_id, who.user_id, "workspace.renamed", "workspace", who.workspace_id)
+    return {"ok": True}
 
 
 @router.get("/team")

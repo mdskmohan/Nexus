@@ -4,18 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { Building2, ChevronRight, LogOut, Moon, Settings, Sun } from "lucide-react";
+import { Building2, ChevronRight, LogOut, Moon, Settings, Sun, UserRound } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import type { Me } from "@/lib/api";
+import { useCrumbLabels } from "@/lib/crumbs";
 import { cn } from "@/lib/utils";
 
 const LABELS: Record<string, string> = {
   "/": "Home", "/approvals": "Approvals", "/knowledge": "Knowledge graph", "/connections": "Connections",
-  "/settings": "Settings",
+  "/settings": "Settings", "/connections/runs": "Runs",
 };
 
 function Breadcrumb() {
   const path = usePathname();
+  const named = useCrumbLabels();
   const parts = path.split("/").filter(Boolean);
   if (!parts.length) return <span className="font-medium text-foreground">Home</span>;
   let href = "";
@@ -23,7 +25,7 @@ function Breadcrumb() {
     <nav className="flex items-center gap-1 text-caption">
       {parts.map((p, i) => {
         href += `/${p}`;
-        const label = LABELS[href] ?? (p.length > 12 ? `${p.slice(0, 8)}…` : p);
+        const label = named[href] ?? LABELS[href] ?? (p.length > 12 ? `${p.slice(0, 8)}…` : p);
         return (
           <span key={href} className="flex items-center gap-1">
             {i > 0 && <ChevronRight className="size-3 text-muted-foreground/60" />}
@@ -80,9 +82,13 @@ export function Topbar({ me, left, onSignOut }: { me: Me; left: number; onSignOu
                 <span className="mt-1.5 inline-flex rounded-md bg-primary-soft px-1.5 py-0.5 text-caption font-medium uppercase tracking-wider text-primary">{me.user.role}</span>
               </div>
               <div className="my-1 h-px bg-border" />
+              <Link href="/settings?tab=general" onClick={() => setMenu(false)} className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-body hover:bg-accent">
+                <UserRound className="size-3.5" /> Profile
+              </Link>
               <Link href="/settings" onClick={() => setMenu(false)} className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-body hover:bg-accent">
                 <Settings className="size-3.5" /> Settings
               </Link>
+              <div className="my-1 h-px bg-border" />
               <button onClick={onSignOut} className={cn("flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-body text-danger hover:bg-danger-soft")}>
                 <LogOut className="size-3.5" /> Sign out
               </button>

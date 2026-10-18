@@ -72,8 +72,8 @@ export default function Home() {
         <Card>
           <CardHeader title="Getting started" description="Five steps from an empty workspace to your first agent." />
           <div className="divide-y divide-border">
-            <Step done={me.model_configured} title="Connect an AI model" body="Claude, GPT, Gemini or a model on your own server." href={can(me, "manage_ai") ? "/settings" : undefined} cta="Settings" />
-            <Step done={team > 1} title="Invite your team" body="Give each person a role: steward, developer, analyst or viewer." href={can(me, "manage_people") ? "/settings" : undefined} cta="Invite" />
+            <Step done={me.model_configured} title="Connect an AI model" body="Claude, GPT, Gemini or a model on your own server." href={can(me, "manage_ai") ? "/settings?tab=ai" : undefined} cta="Settings" />
+            <Step done={team > 1} title="Invite your team" body="Give each person a role: steward, developer, analyst or viewer." href={can(me, "manage_people") ? "/settings?tab=team" : undefined} cta="Invite" />
             <Step done={conns.some((c) => c.collect_status === "done")} title="Connect your warehouses" body="Nexus reads tables and columns with read-only queries." href={can(me, "manage_connections") ? "/connections" : undefined} cta="Connect" />
             <Step done={approvedTables > 0} title="Approve the knowledge graph" body="A steward approves tables, joins and metrics before agents use them." href={seesGraph ? "/knowledge" : undefined} cta="Review" />
             <Step done={false} title="Build your first agent" body="Agent Studio arrives in the next milestone." />

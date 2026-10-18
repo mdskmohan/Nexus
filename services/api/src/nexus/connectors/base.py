@@ -8,6 +8,7 @@ Every query is built here or in the connector, never from user text.
 
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -119,6 +120,10 @@ class Warehouse(ABC):
         self.settings = settings
         self.secrets = secrets
         self._conn: Any = None
+        # Called as (schema, schemas done, schemas in total, tables in that schema) by connectors that
+        # read schema by schema, so a run can report progress. Connectors reading the whole catalogue
+        # in one query never call it.
+        self.on_schema: Callable[[str, int, int, int], None] | None = None
 
     @abstractmethod
     def _connect(self) -> Any: ...

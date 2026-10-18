@@ -7,12 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from nexus import audit, connections, jobs
+from nexus import audit, connections
 from nexus.ai.secrets import SecretError
+from nexus.api.collect_runs import public as public_run
 from nexus.api.deps import Principal, db, found, require, require_any
 from nexus.connectors import KINDS, ConnectorError
 from nexus.db import row, rows, scalar
-from nexus.graph.collect import JOB_KIND as COLLECT
+from nexus.graph.collect import start_run
 
 router = APIRouter(prefix="/api/connections", tags=["connections"])
 
@@ -40,7 +41,22 @@ def _public(conn: dict, workspace_id: str) -> dict:
                                 "collect_status", "collected_at", "collect_msg", "created_at")}
     out["secrets_saved"] = sorted(saved)
     out["verified"] = spec.verified
+    out["last_run"] = public_run(conn["last_run"]) if conn.get("last_run") else None
+    out["last_success"] = conn.get("last_success")
     return out
+
+
+# Each connection with its latest run, and the counts from its latest successful run.
+_WITH_RUNS = """SELECT c.*,
+                       (SELECT to_jsonb(r) FROM (SELECT id, connection_id, trigger, status, phase, progress, stats,
+                                                        error, error_kind, cancel_requested, created_at, started_at,
+                                                        finished_at, updated_at
+                                                 FROM collect_runs WHERE connection_id = c.id
+                                                 ORDER BY created_at DESC LIMIT 1) r) AS last_run,
+                       (SELECT to_jsonb(r) FROM (SELECT id, stats, finished_at FROM collect_runs
+                                                 WHERE connection_id = c.id AND status = 'succeeded'
+                                                 ORDER BY created_at DESC LIMIT 1) r) AS last_success
+                FROM connections c"""
 
 
 def _secrets(conn: dict, workspace_id: str) -> dict:
@@ -64,7 +80,13 @@ def kinds(who: Principal = Depends(VIEW)) -> list[dict]:
 
 @router.get("")
 def list_connections(who: Principal = Depends(VIEW), s: Session = Depends(db)) -> list[dict]:
-    return [_public(c, who.workspace_id) for c in rows(s, "SELECT * FROM connections ORDER BY created_at")]
+    return [_public(c, who.workspace_id) for c in rows(s, f"{_WITH_RUNS} ORDER BY c.created_at")]
+
+
+@router.get("/{connection_id}")
+def get_connection(connection_id: UUID, who: Principal = Depends(VIEW), s: Session = Depends(db)) -> dict:
+    conn = found(row(s, f"{_WITH_RUNS} WHERE c.id = :c", c=connection_id), "No such connection.")
+    return _public(conn, who.workspace_id)
 
 
 @router.post("", status_code=201)
@@ -131,10 +153,10 @@ def test_connection(connection_id: UUID, who: Principal = Depends(MANAGE), s: Se
 
 @router.post("/{connection_id}/collect")
 def collect(connection_id: UUID, who: Principal = Depends(MANAGE), s: Session = Depends(db)) -> dict:
-    conn = found(row(s, "SELECT collect_status FROM connections WHERE id = :c", c=connection_id), "No such connection.")
-    if conn["collect_status"] in ("queued", "running"):
+    found(row(s, "SELECT id FROM connections WHERE id = :c", c=connection_id), "No such connection.")
+    run_id = start_run(s, who.workspace_id, str(connection_id), trigger="manual", user_id=who.user_id)
+    if run_id is None:
         raise HTTPException(409, "Nexus is already reading this connection.")
-    scalar(s, "UPDATE connections SET collect_status = 'queued' WHERE id = :c RETURNING id", c=connection_id)
-    jobs.enqueue(s, who.workspace_id, COLLECT, {"connection_id": str(connection_id)}, max_attempts=1)
-    audit.record(s, who.workspace_id, who.user_id, "connection.collect_requested", "connection", connection_id)
-    return {"ok": True}
+    audit.record(s, who.workspace_id, who.user_id, "connection.collect_requested", "connection", connection_id,
+                 run_id=run_id)
+    return {"ok": True, "run_id": run_id}

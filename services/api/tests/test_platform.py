@@ -125,3 +125,33 @@ def test_audit_trail_is_append_only(client):
         s.execute(text("DELETE FROM audit_events"))
     with tenant(ws) as s:
         assert row(s, "SELECT action FROM audit_events ORDER BY id LIMIT 1")["action"] == "workspace.created"
+
+
+def test_people_update_their_profile_and_password(client):
+    signup(client)
+    assert client.patch("/api/me", json={"name": "Ada Lovelace"}).status_code == 200
+    assert client.get("/api/me").json()["user"]["name"] == "Ada Lovelace"
+    wrong = client.patch("/api/me", json={"current_password": "not it", "new_password": "a brand new password"})
+    assert wrong.status_code == 400 and wrong.json()["detail"] == "Your current password is not correct."
+    assert client.patch("/api/me", json={"new_password": "a brand new password"}).status_code == 400
+    assert client.patch("/api/me", json={"current_password": "correct horse battery",
+                                         "new_password": "short"}).status_code == 422
+    assert client.patch("/api/me", json={"current_password": "correct horse battery",
+                                         "new_password": "a brand new password"}).status_code == 200
+    client.post("/api/auth/logout")
+    assert client.post("/api/auth/login", json={"email": "admin@acme.example",
+                                                "password": "correct horse battery"}).status_code == 401
+    assert client.post("/api/auth/login", json={"email": "admin@acme.example",
+                                                "password": "a brand new password"}).status_code == 200
+
+
+def test_only_admins_rename_the_workspace(client):
+    signup(client)
+    assert client.patch("/api/workspace", json={"name": "Acme Data"}).status_code == 200
+    assert client.get("/api/me").json()["workspace"]["name"] == "Acme Data"
+    client.post("/api/team", json={"name": "Vi", "email": "vi@acme.example", "role": "viewer",
+                                   "temporary_password": "temporary password"})
+    viewer = client.__class__(client.app, headers={"x-nexus-client": "test"})
+    viewer.post("/api/auth/login", json={"email": "vi@acme.example", "password": "temporary password"})
+    assert viewer.patch("/api/workspace", json={"name": "Mine now"}).status_code == 403
+    assert viewer.patch("/api/me", json={"name": "Vi R"}).status_code == 200
